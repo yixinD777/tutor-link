@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(brew services:*)",
+      "Read(//opt/homebrew/etc/kafka/**)",
+      "Read(//opt/homebrew/var/lib/kraft-combined-logs/**)",
+      "Bash(/opt/homebrew/bin/kafka-topics --bootstrap-server localhost:9092 --list)",
+      "Bash(/opt/homebrew/bin/kafka-topics --bootstrap-server localhost:9092 --create --topic order-events --partitions 3 --replication-factor 1)",
+      "Bash(/opt/homebrew/bin/kafka-topics --bootstrap-server localhost:9092 --create --topic order-delay --partitions 1 --replication-factor 1)",
+      "Bash(/opt/homebrew/bin/kafka-topics --bootstrap-server localhost:9092 --create --topic notification-events --partitions 2 --replication-factor 1)",
+      "Bash(/opt/homebrew/bin/kafka-topics --bootstrap-server localhost:9092 --create --topic outbox-retry --partitions 1 --replication-factor 1)",
+      "Bash(mysql -u root -proot -e \"CREATE DATABASE IF NOT EXISTS tutor_link CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\")"
+    ]
+  }
+}

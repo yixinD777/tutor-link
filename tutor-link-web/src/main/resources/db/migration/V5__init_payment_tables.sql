@@ -1,0 +1,47 @@
+-- V5: 支付相关表
+CREATE TABLE `payment` (
+    `id`                BIGINT        NOT NULL,
+    `payment_no`        VARCHAR(32)   NOT NULL,
+    `order_id`          BIGINT        NOT NULL,
+    `payer_user_id`     BIGINT        NOT NULL COMMENT 'Parent',
+    `payee_user_id`     BIGINT        DEFAULT NULL COMMENT 'Tutor',
+    `amount`            INT           NOT NULL COMMENT 'In cents',
+    `platform_fee`      INT           NOT NULL DEFAULT 0 COMMENT 'In cents',
+    `tutor_amount`      INT           NOT NULL DEFAULT 0 COMMENT 'In cents',
+    `pay_channel`       TINYINT       NOT NULL COMMENT '1=wechat_miniapp',
+    `wx_prepay_id`      VARCHAR(64)   DEFAULT NULL,
+    `wx_transaction_id` VARCHAR(64)   DEFAULT NULL,
+    `status`            TINYINT       NOT NULL DEFAULT 1 COMMENT '1=pending,2=paid,3=released,4=frozen',
+    `paid_time`         DATETIME      DEFAULT NULL,
+    `released_time`     DATETIME      DEFAULT NULL,
+    `is_deleted`        TINYINT       NOT NULL DEFAULT 0,
+    `create_time`       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time`       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_payment_no` (`payment_no`),
+    KEY `idx_order_id` (`order_id`),
+    KEY `idx_payer` (`payer_user_id`),
+    KEY `idx_payee` (`payee_user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='支付记录';
+
+CREATE TABLE `refund` (
+    `id`              BIGINT        NOT NULL,
+    `refund_no`       VARCHAR(32)   NOT NULL,
+    `order_id`        BIGINT        NOT NULL,
+    `payment_id`      BIGINT        NOT NULL,
+    `applicant_id`    BIGINT        NOT NULL,
+    `amount`          INT           NOT NULL COMMENT 'In cents',
+    `reason`          VARCHAR(300)  NOT NULL,
+    `wx_refund_id`    VARCHAR(64)   DEFAULT NULL,
+    `status`          TINYINT       NOT NULL DEFAULT 1 COMMENT '1=pending,2=processing,3=success,4=failed',
+    `reviewer_id`     BIGINT        DEFAULT NULL,
+    `review_time`     DATETIME      DEFAULT NULL,
+    `complete_time`   DATETIME      DEFAULT NULL,
+    `is_deleted`      TINYINT       NOT NULL DEFAULT 0,
+    `create_time`     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time`     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_refund_no` (`refund_no`),
+    KEY `idx_order_id` (`order_id`),
+    KEY `idx_payment_id` (`payment_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='退款记录';
