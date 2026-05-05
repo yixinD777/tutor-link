@@ -82,6 +82,20 @@ public class OrderController {
                 lng, lat, radiusKm, page, size));
     }
 
+    @Operation(summary = "待接单订单 Feed 流 (游标分页)")
+    @PreAuthorize("hasRole('TUTOR')")
+    @GetMapping("/pending/feed")
+    public ApiResult<com.tutorlink.model.dto.common.CursorPageResponse<Order>> listPendingOrdersFeed(
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(required = false) Long subjectId,
+            @RequestParam(required = false) Integer teachingMode,
+            @RequestParam(required = false) Integer hourlyRateMin,
+            @RequestParam(required = false) Integer hourlyRateMax) {
+        return ApiResult.success(orderQueryService.listPendingOrdersFeed(
+                cursor, limit, subjectId, teachingMode, hourlyRateMin, hourlyRateMax));
+    }
+
     @Operation(summary = "接单 (家教)")
     @PreAuthorize("hasRole('TUTOR')")
     @PutMapping("/{id}/accept")

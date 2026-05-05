@@ -40,9 +40,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 import { createOrder } from '../../api/order'
+import { sendMessage } from '../../api/chat'
 import { get } from '../../api/request'
+
+const tutorUserId = ref(null)
 
 const form = ref({
   title: '', subjectId: null, subjectName: '',
@@ -53,7 +57,12 @@ const subjectNames = ref([])
 const subjectIds = ref([])
 const modeText = ref('线下')
 
-onMounted(() => { loadSubjects() })
+onLoad((options) => {
+  if (options.tutorUserId) {
+    tutorUserId.value = Number(options.tutorUserId)
+  }
+  loadSubjects()
+})
 
 async function loadSubjects() {
   try {
@@ -79,7 +88,7 @@ async function submitOrder() {
     return
   }
   try {
-    await createOrder({
+    const order = await createOrder({
       title: form.value.title,
       subjectId: form.value.subjectId,
       grade: form.value.grade,
@@ -88,8 +97,24 @@ async function submitOrder() {
       teachingMode: form.value.teachingMode,
       description: form.value.description
     })
-    uni.showToast({ title: '发布成功', icon: 'success' })
-    setTimeout(() => uni.switchTab({ url: '/pages/order/list' }), 1500)
+
+    // 如果是从聊天页面发起的，发送订单卡片消息给家教
+    if (tutorUserId.value) {
+      try {
+        await sendMessage(tutorUserId.value, 3, JSON.stringify({
+          orderId: order.id,
+          title: form.value.title,
+          grade: form.value.grade,
+          hourlyRate: Math.round(parseFloat(form.value.hourlyRate) * 100),
+          totalHours: parseInt(form.value.totalHours)
+        }))
+      } catch (e) { console.error('Send order card failed', e) }
+      uni.showToast({ title: '发布成功', icon: 'success' })
+      setTimeout(() => uni.navigateBack(), 1500)
+    } else {
+      uni.showToast({ title: '发布成功', icon: 'success' })
+      setTimeout(() => uni.switchTab({ url: '/pages/order/list' }), 1500)
+    }
   } catch (e) { console.error(e) }
 }
 </script>

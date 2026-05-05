@@ -1,7 +1,11 @@
 <script>
+import { useUserStore } from './store/user'
+
 export default {
   onLaunch() {
     console.log('App Launch')
+    const userStore = useUserStore()
+    userStore.loadFromStorage()
   },
   onShow() {
     console.log('App Show')

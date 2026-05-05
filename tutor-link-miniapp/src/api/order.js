@@ -25,6 +25,11 @@ export function listPendingOrders(params) {
   return get('/orders/pending', params)
 }
 
+// 待接单订单 Feed 流 (游标分页)
+export function listPendingOrdersFeed(params) {
+  return get('/orders/pending/feed', params)
+}
+
 // 家教接单
 export function acceptOrder(id) {
   return put(`/orders/${id}/accept`)

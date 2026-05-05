@@ -97,6 +97,15 @@ oss:
   access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
   bucket-name: ${OSS_BUCKET_NAME:}
 
+# ====== AI Advisor ======
+ai:
+  advisor:
+    api-key: ${ANTHROPIC_API_KEY:}
+    model: ${AI_MODEL:mimo-v2.5-pro[1m]}
+    base-url: ${AI_BASE_URL:https://token-plan-cn.xiaomimimo.com/anthropic}
+    max-tokens: ${AI_MAX_TOKENS:2048}
+    timeout-seconds: ${AI_TIMEOUT:30}
+
 # ====== Knife4j ======
 springdoc:
   api-docs:

@@ -1,4 +1,4 @@
-import { get, put } from './request'
+import { get, put, post } from './request'
 
 // 我的会话列表
 export function listConversations() {
@@ -18,4 +18,9 @@ export function markAsRead(conversationId) {
 // 未读消息数
 export function getUnreadCount() {
   return get('/chat/unread-count')
+}
+
+// 发送消息
+export function sendMessage(receiverId, msgType, content) {
+  return post('/chat/send', { receiverId, msgType, content })
 }

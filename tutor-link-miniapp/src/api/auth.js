@@ -1,5 +1,15 @@
 import { post, get } from './request'
 
+// 账号注册
+export function register(account, password, nickname, role) {
+  return post('/auth/register', { account, password, nickname, role })
+}
+
+// 账号密码登录
+export function passwordLogin(account, password) {
+  return post('/auth/password-login', { account, password })
+}
+
 // 微信登录
 export function wxLogin(code, encryptedData, iv) {
   return post('/auth/wx-login', { code, encryptedData, iv })

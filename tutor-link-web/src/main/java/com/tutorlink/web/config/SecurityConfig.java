@@ -1,7 +1,13 @@
 package com.tutorlink.web.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tutorlink.common.constant.ResultCode;
+import com.tutorlink.common.response.ApiResult;
 import com.tutorlink.web.security.JwtAuthenticationFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -21,17 +27,35 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.setCharacterEncoding("UTF-8");
+                            response.getWriter().write(objectMapper.writeValueAsString(
+                                    ApiResult.error(ResultCode.FORBIDDEN)));
+                        })
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.setCharacterEncoding("UTF-8");
+                            response.getWriter().write(objectMapper.writeValueAsString(
+                                    ApiResult.error(ResultCode.UNAUTHORIZED)));
+                        })
+                )
                 .authorizeHttpRequests(auth -> auth
                         // 公开接口
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/subjects/**").permitAll()
                         .requestMatchers("/api/v1/areas/**").permitAll()
+                        .requestMatchers("/api/v1/tutors", "/api/v1/tutors/{userId}", "/api/v1/tutors/{userId}/**").permitAll()
                         .requestMatchers("/api/v1/payments/wechat-callback").permitAll()
                         .requestMatchers("/api/v1/payments/refund-callback").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/reviews/**").permitAll()
                         // WebSocket 端点
                         .requestMatchers("/ws/**").permitAll()
                         // 管理员接口

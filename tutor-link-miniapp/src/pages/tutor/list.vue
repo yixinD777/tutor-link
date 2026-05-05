@@ -25,7 +25,8 @@
         <text class="info-line">{{ tutor.major }} · {{ tutor.educationLevelDesc || '本科' }}</text>
         <text class="info-line">{{ formatRate(tutor.hourlyRateMin, tutor.hourlyRateMax) }}</text>
         <text class="info-line location">{{ tutor.city || '' }} {{ tutor.district || '' }}</text>
-      </scroll-view>
+      </view>
+    </scroll-view>
 
     <view v-if="loading" class="loading">
       <text>加载中...</text>

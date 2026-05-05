@@ -97,7 +97,6 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { onLoad } from '@dcloudio/uni-app'
 import { getOrder, getOrderLogs, acceptOrder, cancelOrder, startOrder, completeOrder, prepay } from '../../api/order'
 import { useUserStore } from '../../store/user'
 
@@ -136,14 +135,16 @@ const actions = computed(() => {
   }
   if (isParent.value) {
     if (s === 2) list.push({ type: 'pay', label: '去支付' })
+    if (s === 2) list.push({ type: 'trial', label: '创建试课' })
     if (s === 4) list.push({ type: 'complete', label: '确认完成' })
+    if (s === 3 || s === 4) list.push({ type: 'schedule', label: '课程排期' })
   }
   if ([1, 2, 3].includes(s)) list.push({ type: 'cancel', label: '取消订单' })
   return list
 })
 
 function statusText(s) {
-  const map = { 1: '待确认', 2: '待支付', 3: '已支付', 4: '进行中', 5: '已完成', 6: '已取消', 7: '退款中', 8: '已退款', 9: '争议中' }
+  const map = { 1: '待确认', 2: '待支付', 3: '已支付', 4: '进行中', 5: '已完成', 6: '已取消', 7: '退款中', 8: '已退款', 9: '争议中', 10: '试课中' }
   return map[s] || '未知'
 }
 
@@ -151,7 +152,8 @@ function statusDesc(s) {
   const map = {
     1: '等待家教接单', 2: '请尽快完成支付', 3: '已支付，等待家教开始上课',
     4: '课程进行中', 5: '课程已完成', 6: '订单已取消',
-    7: '退款处理中', 8: '退款已完成', 9: '存在争议，请等待处理'
+    7: '退款处理中', 8: '退款已完成', 9: '存在争议，请等待处理',
+    10: '试课进行中，请等待家长评价'
   }
   return map[s] || ''
 }
@@ -225,6 +227,12 @@ async function handleAction(type) {
         }
       })
       return
+    } else if (type === 'trial') {
+      uni.navigateTo({ url: `/pages/trial/create?orderId=${orderId.value}&tutorUserId=${order.value.tutorUserId}` })
+      return
+    } else if (type === 'schedule') {
+      uni.navigateTo({ url: `/pages/schedule/create?orderId=${orderId.value}&address=${order.value.teachingAddress || ''}&mode=${order.value.teachingMode || 1}` })
+      return
     }
     loadDetail()
   } catch (e) { console.error(e) }
@@ -240,6 +248,7 @@ async function handleAction(type) {
 .status-bg-4 { background: linear-gradient(135deg, #4CAF50, #388E3C); }
 .status-bg-5 { background: linear-gradient(135deg, #999, #777); }
 .status-bg-6 { background: linear-gradient(135deg, #F44336, #D32F2F); }
+.status-bg-10 { background: linear-gradient(135deg, #FF9500, #E68900); }
 .status-bg-7 { background: linear-gradient(135deg, #FF9800, #F57C00); }
 .status-bg-8 { background: linear-gradient(135deg, #999, #777); }
 .status-bg-9 { background: linear-gradient(135deg, #F44336, #D32F2F); }

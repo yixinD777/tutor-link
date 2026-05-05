@@ -12,6 +12,8 @@ import java.time.LocalDateTime;
 @TableName("user")
 public class User extends MpBaseEntity {
 
+    private String account;
+
     private String phone;
 
     private String phoneHash;

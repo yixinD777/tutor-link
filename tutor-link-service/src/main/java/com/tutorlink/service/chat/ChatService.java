@@ -58,7 +58,7 @@ public class ChatService {
     /**
      * 发送消息 (WebSocket + 持久化)
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public ChatMessage sendMessage(Long senderId, Long receiverId, Integer msgType, String content) {
         ChatConversation conv = getOrCreateConversation(senderId, receiverId);
 
@@ -87,13 +87,25 @@ public class ChatService {
         }
         conversationMapper.update(null, updateWrapper);
 
-        // 通过 WebSocket 推送给接收方
-        messagingTemplate.convertAndSendToUser(
-                String.valueOf(receiverId),
-                "/queue/messages",
-                msg);
-
         return msg;
+    }
+
+    /**
+     * 异步推送 WebSocket 消息（在事务提交后执行）
+     */
+    public void pushWebSocketMessage(Long receiverId, ChatMessage msg) {
+        if (messagingTemplate == null) {
+            log.warn("SimpMessagingTemplate is null, skipping WebSocket push");
+            return;
+        }
+        try {
+            messagingTemplate.convertAndSendToUser(
+                    String.valueOf(receiverId),
+                    "/queue/messages",
+                    msg);
+        } catch (Exception e) {
+            log.warn("WebSocket push failed for user {}: {}", receiverId, e.getMessage());
+        }
     }
 
     /**

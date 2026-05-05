@@ -11,7 +11,9 @@ import com.tutorlink.common.util.RedisKeyUtil;
 import com.tutorlink.dao.mapper.UserMapper;
 import com.tutorlink.dao.mapper.UserProfileMapper;
 import com.tutorlink.model.dto.user.LoginResponse;
+import com.tutorlink.model.dto.user.PasswordLoginRequest;
 import com.tutorlink.model.dto.user.PhoneLoginRequest;
+import com.tutorlink.model.dto.user.RegisterRequest;
 import com.tutorlink.model.dto.user.WxLoginRequest;
 import com.tutorlink.model.entity.User;
 import com.tutorlink.model.entity.UserProfile;
@@ -19,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -46,6 +49,63 @@ public class UserServiceImpl implements UserService {
 
     @Value("${wechat.miniapp.secret:}")
     private String wxSecret;
+
+    private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
+
+    @Override
+    public LoginResponse register(RegisterRequest request) {
+        // 检查账号是否已存在
+        User existing = userMapper.selectOne(
+                new LambdaQueryWrapper<User>().eq(User::getAccount, request.getAccount()));
+        if (existing != null) {
+            throw new BusinessException(ResultCode.ACCOUNT_ALREADY_EXISTS);
+        }
+
+        // 校验角色：只允许家长(1)或学生(2)
+        int role = request.getRole();
+        if (role != UserRole.PARENT.getCode() && role != UserRole.TUTOR.getCode()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "角色值无效，仅支持家长(1)或学生(2)");
+        }
+
+        // 创建用户
+        User user = new User();
+        user.setAccount(request.getAccount());
+        user.setPassword(PASSWORD_ENCODER.encode(request.getPassword()));
+        user.setNickname(request.getNickname() != null ? request.getNickname() : request.getAccount());
+        user.setRole(role);
+        user.setStatus(1);
+        user.setGender(0);
+        userMapper.insert(user);
+
+        // 创建空 profile
+        UserProfile profile = new UserProfile();
+        profile.setUserId(user.getId());
+        userProfileMapper.insert(profile);
+
+        return buildLoginResponse(user);
+    }
+
+    @Override
+    public LoginResponse passwordLogin(PasswordLoginRequest request) {
+        // 根据账号查找用户
+        User user = userMapper.selectOne(
+                new LambdaQueryWrapper<User>().eq(User::getAccount, request.getAccount()));
+        if (user == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+
+        // 验证密码
+        if (user.getPassword() == null || !PASSWORD_ENCODER.matches(request.getPassword(), user.getPassword())) {
+            throw new BusinessException(ResultCode.INVALID_PASSWORD);
+        }
+
+        if (user.getStatus() != 1) {
+            throw new BusinessException(ResultCode.USER_DISABLED);
+        }
+
+        updateLastLogin(user.getId(), null);
+        return buildLoginResponse(user);
+    }
 
     @Override
     public LoginResponse phoneLogin(PhoneLoginRequest request) {

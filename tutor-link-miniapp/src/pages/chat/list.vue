@@ -35,7 +35,13 @@ const userStore = useUserStore()
 const conversations = ref([])
 const loading = ref(false)
 
-onShow(() => { loadConversations() })
+onShow(() => {
+  if (!userStore.isLoggedIn) {
+    uni.reLaunch({ url: '/pages/login/index' })
+    return
+  }
+  loadConversations()
+})
 
 async function loadConversations() {
   loading.value = true

@@ -1,6 +1,7 @@
 package com.tutorlink.web.controller.admin;
 
 import com.tutorlink.common.response.ApiResult;
+import com.tutorlink.model.dto.admin.DashboardStatsResponse;
 import com.tutorlink.service.admin.AdminDashboardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,5 +26,12 @@ public class AdminDashboardController {
     @GetMapping("/stats")
     public ApiResult<Map<String, Object>> getStats() {
         return ApiResult.success(dashboardService.getStats());
+    }
+
+    @Operation(summary = "获取详细仪表盘统计")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/detailed-stats")
+    public ApiResult<DashboardStatsResponse> getDetailedStats() {
+        return ApiResult.success(dashboardService.getDetailedStats());
     }
 }

@@ -47,4 +47,17 @@ public class ChatController {
     public ApiResult<Integer> getUnreadCount(@AuthenticationPrincipal Long userId) {
         return ApiResult.success(chatService.getUnreadCount(userId));
     }
+
+    @Operation(summary = "发送消息")
+    @PostMapping("/send")
+    public ApiResult<ChatMessage> sendMessage(
+            @AuthenticationPrincipal Long userId,
+            @RequestBody java.util.Map<String, Object> body) {
+        Long receiverId = Long.valueOf(body.get("receiverId").toString());
+        Integer msgType = body.containsKey("msgType") ? Integer.valueOf(body.get("msgType").toString()) : 1;
+        String content = body.get("content").toString();
+        ChatMessage msg = chatService.sendMessage(userId, receiverId, msgType, content);
+        chatService.pushWebSocketMessage(receiverId, msg);
+        return ApiResult.success(msg);
+    }
 }

@@ -86,6 +86,7 @@ const tabs = computed(() => {
     return [
       { label: '待接单', value: 'pending' },
       { label: '全部', value: 'all' },
+      { label: '试课中', value: 10 },
       { label: '待支付', value: 2 },
       { label: '进行中', value: 4 },
       { label: '已完成', value: 5 }
@@ -94,6 +95,7 @@ const tabs = computed(() => {
   return [
     { label: '全部', value: 'all' },
     { label: '待确认', value: 1 },
+    { label: '试课中', value: 10 },
     { label: '待支付', value: 2 },
     { label: '进行中', value: 4 },
     { label: '已完成', value: 5 }
@@ -112,7 +114,13 @@ const isEmpty = computed(() => {
   return orderList.value.length === 0
 })
 
-onShow(() => { loadData(true) })
+onShow(() => {
+  if (!userStore.isLoggedIn) {
+    uni.reLaunch({ url: '/pages/login/index' })
+    return
+  }
+  loadData(true)
+})
 
 function switchTab(val) {
   currentTab.value = val
@@ -157,7 +165,7 @@ function goDetail(id) {
 }
 
 function statusText(s) {
-  const map = { 1: '待确认', 2: '待支付', 3: '已支付', 4: '进行中', 5: '已完成', 6: '已取消', 7: '退款中', 8: '已退款', 9: '争议中' }
+  const map = { 1: '待确认', 2: '待支付', 3: '已支付', 4: '进行中', 5: '已完成', 6: '已取消', 7: '退款中', 8: '已退款', 9: '争议中', 10: '试课中' }
   return map[s] || '未知'
 }
 

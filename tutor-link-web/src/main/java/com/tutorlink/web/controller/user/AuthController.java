@@ -2,7 +2,9 @@ package com.tutorlink.web.controller.user;
 
 import com.tutorlink.common.response.ApiResult;
 import com.tutorlink.model.dto.user.LoginResponse;
+import com.tutorlink.model.dto.user.PasswordLoginRequest;
 import com.tutorlink.model.dto.user.PhoneLoginRequest;
+import com.tutorlink.model.dto.user.RegisterRequest;
 import com.tutorlink.model.dto.user.WxLoginRequest;
 import com.tutorlink.service.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,6 +20,18 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final UserService userService;
+
+    @Operation(summary = "账号注册")
+    @PostMapping("/register")
+    public ApiResult<LoginResponse> register(@Valid @RequestBody RegisterRequest request) {
+        return ApiResult.success(userService.register(request));
+    }
+
+    @Operation(summary = "账号密码登录")
+    @PostMapping("/password-login")
+    public ApiResult<LoginResponse> passwordLogin(@Valid @RequestBody PasswordLoginRequest request) {
+        return ApiResult.success(userService.passwordLogin(request));
+    }
 
     @Operation(summary = "手机号+验证码登录")
     @PostMapping("/phone-login")

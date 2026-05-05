@@ -187,6 +187,90 @@ public class OrderStateMachine {
         publishOutboxEvent(order, OrderStatus.IN_PROGRESS, OrderStatus.COMPLETED, "ORDER_COMPLETED", parentUserId, 1);
     }
 
+    /**
+     * 开始试课：CONFIRMED -> TRIAL
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void startTrial(Long orderId) {
+        Order order = getOrderOrThrow(orderId);
+        validateTransition(order.getStatus(), OrderStatus.TRIAL);
+
+        int updated = orderMapper.update(null,
+                new LambdaUpdateWrapper<Order>()
+                        .eq(Order::getId, orderId)
+                        .eq(Order::getStatus, order.getStatus())
+                        .set(Order::getStatus, OrderStatus.TRIAL.getCode()));
+        if (updated == 0) {
+            throw new BusinessException(ResultCode.ORDER_STATUS_INVALID, "操作失败，请重试");
+        }
+
+        insertOrderLog(orderId, order.getStatus(), OrderStatus.TRIAL.getCode(),
+                order.getTutorUserId(), 2, "START_TRIAL", "开始试课");
+
+        publishOutboxEvent(order, OrderStatus.fromCode(order.getStatus()), OrderStatus.TRIAL,
+                "ORDER_TRIAL_STARTED", order.getTutorUserId(), 2);
+    }
+
+    /**
+     * 试课通过：TRIAL -> CONFIRMED（回到待付款）
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void confirmTrialPass(Long orderId, Long parentUserId) {
+        Order order = getOrderOrThrow(orderId);
+        if (!order.getParentUserId().equals(parentUserId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN);
+        }
+        if (order.getStatus() != OrderStatus.TRIAL.getCode()) {
+            throw new BusinessException(ResultCode.ORDER_STATUS_INVALID, "当前状态不是试课中");
+        }
+
+        int updated = orderMapper.update(null,
+                new LambdaUpdateWrapper<Order>()
+                        .eq(Order::getId, orderId)
+                        .eq(Order::getStatus, OrderStatus.TRIAL.getCode())
+                        .set(Order::getStatus, OrderStatus.CONFIRMED.getCode()));
+        if (updated == 0) {
+            throw new BusinessException(ResultCode.ORDER_STATUS_INVALID, "操作失败，请重试");
+        }
+
+        insertOrderLog(orderId, OrderStatus.TRIAL.getCode(), OrderStatus.CONFIRMED.getCode(),
+                parentUserId, 1, "TRIAL_PASS", "试课通过，等待付款");
+
+        publishOutboxEvent(order, OrderStatus.TRIAL, OrderStatus.CONFIRMED,
+                "ORDER_TRIAL_PASSED", parentUserId, 1);
+    }
+
+    /**
+     * 试课不通过：TRIAL -> CANCELLED
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void confirmTrialFail(Long orderId, Long parentUserId) {
+        Order order = getOrderOrThrow(orderId);
+        if (!order.getParentUserId().equals(parentUserId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN);
+        }
+        if (order.getStatus() != OrderStatus.TRIAL.getCode()) {
+            throw new BusinessException(ResultCode.ORDER_STATUS_INVALID, "当前状态不是试课中");
+        }
+
+        int updated = orderMapper.update(null,
+                new LambdaUpdateWrapper<Order>()
+                        .eq(Order::getId, orderId)
+                        .eq(Order::getStatus, OrderStatus.TRIAL.getCode())
+                        .set(Order::getStatus, OrderStatus.CANCELLED.getCode())
+                        .set(Order::getCancelBy, parentUserId)
+                        .set(Order::getCancelReason, "试课不通过"));
+        if (updated == 0) {
+            throw new BusinessException(ResultCode.ORDER_STATUS_INVALID, "操作失败，请重试");
+        }
+
+        insertOrderLog(orderId, OrderStatus.TRIAL.getCode(), OrderStatus.CANCELLED.getCode(),
+                parentUserId, 1, "TRIAL_FAIL", "试课不通过，订单取消");
+
+        publishOutboxEvent(order, OrderStatus.TRIAL, OrderStatus.CANCELLED,
+                "ORDER_TRIAL_FAILED", parentUserId, 1);
+    }
+
     // ==================== 私有方法 ====================
 
     private Order getOrderOrThrow(Long orderId) {
@@ -204,6 +288,7 @@ public class OrderStateMachine {
             case IN_PROGRESS -> current == OrderStatus.PAID;
             case COMPLETED -> current == OrderStatus.IN_PROGRESS;
             case CANCELLED -> current == OrderStatus.PENDING || current == OrderStatus.CONFIRMED;
+            case TRIAL -> current == OrderStatus.CONFIRMED;
             default -> false;
         };
         if (!valid) {

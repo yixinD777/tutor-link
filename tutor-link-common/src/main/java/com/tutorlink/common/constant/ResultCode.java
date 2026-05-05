@@ -22,6 +22,8 @@ public enum ResultCode {
     PHONE_ALREADY_BOUND(1003, "手机号已被绑定"),
     INVALID_SMS_CODE(1004, "验证码无效"),
     WX_LOGIN_FAILED(1005, "微信登录失败"),
+    ACCOUNT_ALREADY_EXISTS(1006, "账号已存在"),
+    INVALID_PASSWORD(1007, "密码错误"),
 
     // 认证相关 2xxx
     CERTIFICATION_PENDING(2001, "认证审核中"),
@@ -41,7 +43,12 @@ public enum ResultCode {
 
     // 评价相关 5xxx
     REVIEW_ALREADY_EXISTS(5001, "已评价过"),
-    REVIEW_ORDER_NOT_COMPLETED(5002, "订单未完成，无法评价");
+    REVIEW_ORDER_NOT_COMPLETED(5002, "订单未完成，无法评价"),
+
+    // AI顾问相关 6xxx
+    AI_SERVICE_ERROR(6001, "AI服务异常"),
+    AI_RATE_LIMITED(6002, "AI请求过于频繁"),
+    AI_NOT_CONFIGURED(6003, "AI服务未配置");
 
     private final int code;
     private final String message;

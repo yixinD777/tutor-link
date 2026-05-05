@@ -15,7 +15,8 @@ public enum OrderStatus {
     CANCELLED(6, "已取消"),
     REFUNDING(7, "退款中"),
     REFUNDED(8, "已退款"),
-    DISPUTED(9, "争议中");
+    DISPUTED(9, "争议中"),
+    TRIAL(10, "试课中");
 
     private final int code;
     private final String desc;

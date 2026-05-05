@@ -9,6 +9,7 @@ import com.tutorlink.common.constant.UserRole;
 import com.tutorlink.common.exception.BusinessException;
 import com.tutorlink.dao.mapper.OrderLogMapper;
 import com.tutorlink.dao.mapper.OrderMapper;
+import com.tutorlink.model.dto.common.CursorPageResponse;
 import com.tutorlink.model.entity.Order;
 import com.tutorlink.model.entity.OrderLog;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -104,5 +106,44 @@ public class OrderQueryService {
 
         wrapper.orderByDesc(Order::getCreateTime);
         return orderMapper.selectPage(new Page<>(page, size), wrapper);
+    }
+
+    /**
+     * 基于游标的分页查询待接单订单 (Feed 流)
+     * 使用 id 倒序，cursor 为上一页最后一条记录的 id
+     */
+    public CursorPageResponse<Order> listPendingOrdersFeed(Long cursor, int limit,
+                                                            Long subjectId, Integer teachingMode,
+                                                            Integer hourlyRateMin, Integer hourlyRateMax) {
+        LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Order::getStatus, OrderStatus.PENDING.getCode());
+
+        // 游标条件：id < cursor
+        if (cursor != null && cursor > 0) {
+            wrapper.lt(Order::getId, cursor);
+        }
+
+        if (subjectId != null) wrapper.eq(Order::getSubjectId, subjectId);
+        if (teachingMode != null) wrapper.eq(Order::getTeachingMode, teachingMode);
+        if (hourlyRateMin != null) wrapper.ge(Order::getHourlyRate, hourlyRateMin);
+        if (hourlyRateMax != null) wrapper.le(Order::getHourlyRate, hourlyRateMax);
+
+        wrapper.orderByDesc(Order::getId);
+        wrapper.last("LIMIT " + (limit + 1)); // 多查一条判断 hasMore
+
+        List<Order> list = orderMapper.selectList(wrapper);
+
+        boolean hasMore = list.size() > limit;
+        if (hasMore) {
+            list = list.subList(0, limit); // 截取 limit 条
+        }
+
+        Long nextCursor = list.isEmpty() ? null : list.get(list.size() - 1).getId();
+
+        return CursorPageResponse.<Order>builder()
+                .list(list)
+                .nextCursor(nextCursor)
+                .hasMore(hasMore)
+                .build();
     }
 }

@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:8080/api/v1'
+const BASE_URL = '/api/v1'
 
 let accessToken = ''
 
@@ -37,6 +37,12 @@ export function request(options) {
       data: options.data,
       header,
       success: (res) => {
+        if (res.statusCode === 401 || res.statusCode === 403) {
+          clearToken()
+          uni.reLaunch({ url: '/pages/login/index' })
+          reject(res)
+          return
+        }
         if (res.statusCode === 200) {
           const data = res.data
           if (data.code === 200) {
@@ -50,7 +56,7 @@ export function request(options) {
             reject(data)
           }
         } else {
-          uni.showToast({ title: '网络错误', icon: 'none' })
+          uni.showToast({ title: '请求失败(' + res.statusCode + ')', icon: 'none' })
           reject(res)
         }
       },
