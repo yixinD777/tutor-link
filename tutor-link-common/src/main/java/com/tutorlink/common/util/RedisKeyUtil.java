@@ -36,4 +36,14 @@ public class RedisKeyUtil {
     public static String processedEvent(String eventId) {
         return PREFIX + "event:processed:" + eventId;
     }
+
+    // ====== AI 会话 ======
+    public static String aiConversation(String conversationId) {
+        return PREFIX + "ai:conversation:" + conversationId;
+    }
+
+    // ====== AI 用户记忆 ======
+    public static String aiUserMemory(Long userId) {
+        return PREFIX + "ai:memory:" + userId;
+    }
 }

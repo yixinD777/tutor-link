@@ -1,5 +1,10 @@
 <template>
   <view class="page">
+    <!-- 右上角记忆按钮（H5 导航栏） -->
+    <view class="memory-btn" @tap="openMemory">
+      <text class="memory-icon">🧠</text>
+    </view>
+
     <!-- 消息列表 -->
     <scroll-view class="msg-list" scroll-y :scroll-into-view="scrollTarget" scroll-with-animation>
       <!-- 欢迎消息 -->
@@ -18,17 +23,20 @@
       </view>
 
       <!-- 消息气泡 -->
-      <view v-for="(msg, i) in messages" :key="i" :id="'msg-' + i"
-            class="msg-item" :class="msg.role">
-        <image v-if="msg.role === 'ai'" class="msg-avatar" src="/static/ai-avatar.png" mode="aspectFill" />
-        <view class="msg-bubble" :class="msg.role === 'user' ? 'user-bubble' : 'ai-bubble'">
-          <text user-select>{{ msg.content }}</text>
+      <template v-for="(msg, i) in messages" :key="i">
+        <view v-if="msg.role === 'user' || msg.content !== ''"
+              :id="'msg-' + i"
+              class="msg-item" :class="msg.role">
+          <image v-if="msg.role === 'ai'" class="msg-avatar" src="/static/ai-avatar.png" mode="aspectFill" />
+          <view class="msg-bubble" :class="msg.role === 'user' ? 'user-bubble' : 'ai-bubble'">
+            <text user-select>{{ msg.content }}</text>
+          </view>
+          <image v-if="msg.role === 'user'" class="msg-avatar" :src="userAvatar" mode="aspectFill" />
         </view>
-        <image v-if="msg.role === 'user'" class="msg-avatar" :src="userAvatar" mode="aspectFill" />
-      </view>
+      </template>
 
-      <!-- 加载中 -->
-      <view v-if="isLoading" class="msg-item ai">
+      <!-- 加载中（等待第一个字出现前显示） -->
+      <view v-if="isLoading && messages.length > 0 && messages[messages.length-1].content === ''" class="msg-item ai">
         <image class="msg-avatar" src="/static/ai-avatar.png" mode="aspectFill" />
         <view class="msg-bubble ai-bubble loading-bubble">
           <view class="typing-indicator">
@@ -51,12 +59,49 @@
         发送
       </button>
     </view>
+
+    <!-- 记忆抽屉 -->
+    <view v-if="showMemoryPopup" class="popup-mask" @tap.self="closeMemory">
+      <view class="memory-popup">
+        <view class="popup-header">
+          <text class="popup-title">AI 已记住的信息</text>
+          <text class="popup-close" @tap="closeMemory">✕</text>
+        </view>
+
+        <view v-if="memoryLoading" class="memory-loading">
+          <text>加载中...</text>
+        </view>
+        <view v-else-if="!memoryData.summary && (!memoryData.facts || memoryData.facts.length === 0)" class="memory-empty">
+          <text>暂无记忆，和 AI 多聊几轮后会自动记录您的偏好</text>
+        </view>
+        <view v-else class="memory-content">
+          <view v-if="memoryData.summary" class="memory-section">
+            <text class="section-label">偏好摘要</text>
+            <text class="section-text">{{ memoryData.summary }}</text>
+          </view>
+          <view v-if="memoryData.facts && memoryData.facts.length > 0" class="memory-section">
+            <text class="section-label">已知信息</text>
+            <view class="fact-list">
+              <view class="fact-item" v-for="(f, i) in memoryData.facts" :key="i">
+                <text class="fact-dot">·</text>
+                <text class="fact-text">{{ f }}</text>
+              </view>
+            </view>
+          </view>
+          <view v-if="memoryData.updatedAt" class="memory-updated">
+            <text>最后更新：{{ memoryData.updatedAt }}</text>
+          </view>
+        </view>
+
+        <button class="clear-btn" @tap="onClearMemory" :disabled="memoryLoading">清除记忆</button>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
-import { chatWithAi, getAiSuggestions } from '../../api/ai'
+import { chatWithAiStream, getAiSuggestions, getAiMemory, clearAiMemory } from '../../api/ai'
 import { useUserStore } from '../../store/user'
 
 const userStore = useUserStore()
@@ -67,6 +112,13 @@ const scrollTarget = ref('')
 const suggestions = ref([])
 const showSuggestions = ref(true)
 const userAvatar = ref('/static/default-avatar.png')
+const conversationId = ref(null)
+let abortStream = null
+
+// 记忆 popup 状态
+const showMemoryPopup = ref(false)
+const memoryLoading = ref(false)
+const memoryData = ref({ summary: '', facts: [], updatedAt: null })
 
 onMounted(() => {
   userStore.loadFromStorage()
@@ -88,13 +140,47 @@ async function loadSuggestions() {
   }
 }
 
+async function openMemory() {
+  showMemoryPopup.value = true
+  memoryLoading.value = true
+  try {
+    memoryData.value = await getAiMemory() || { summary: '', facts: [], updatedAt: null }
+  } catch (e) {
+    memoryData.value = { summary: '', facts: [], updatedAt: null }
+  } finally {
+    memoryLoading.value = false
+  }
+}
+
+function closeMemory() {
+  showMemoryPopup.value = false
+}
+
+async function onClearMemory() {
+  uni.showModal({
+    title: '确认清除',
+    content: '清除后 AI 将不再记得您的偏好信息，确定吗？',
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          await clearAiMemory()
+          memoryData.value = { summary: '', facts: [], updatedAt: null }
+          uni.showToast({ title: '记忆已清除', icon: 'success' })
+        } catch (e) {
+          uni.showToast({ title: '清除失败，请重试', icon: 'none' })
+        }
+      }
+    }
+  })
+}
+
 function sendSuggestion(text) {
   showSuggestions.value = false
   inputText.value = text
   sendMessage()
 }
 
-async function sendMessage() {
+function sendMessage() {
   const text = inputText.value.trim()
   if (!text || isLoading.value) return
 
@@ -105,23 +191,37 @@ async function sendMessage() {
   messages.value.push({ role: 'user', content: text })
   scrollToBottom()
 
-  // Build history for multi-turn
-  const history = messages.value.slice(0, -1).map(m => ({
-    role: m.role === 'user' ? 'user' : 'assistant',
-    content: m.content
-  }))
-
   isLoading.value = true
 
-  try {
-    const res = await chatWithAi(text, null, history)
-    messages.value.push({ role: 'ai', content: res.message || '抱歉，暂时无法回答您的问题。' })
-  } catch (e) {
-    messages.value.push({ role: 'ai', content: '抱歉，服务暂时不可用，请稍后再试。' })
-  } finally {
-    isLoading.value = false
-    scrollToBottom()
-  }
+  // Add empty AI message placeholder
+  const aiMsgIndex = messages.value.length
+  messages.value.push({ role: 'ai', content: '' })
+
+  abortStream = chatWithAiStream(
+    text,
+    conversationId.value,
+    // onText: 逐字追加
+    (chunk) => {
+      messages.value[aiMsgIndex].content += chunk
+      scrollToBottom()
+    },
+    // onDone
+    (convId) => {
+      if (convId) conversationId.value = convId
+      isLoading.value = false
+      if (!messages.value[aiMsgIndex].content) {
+        messages.value[aiMsgIndex].content = '抱歉，暂时无法回答您的问题。'
+      }
+      scrollToBottom()
+    },
+    // onError
+    (err) => {
+      console.error('AI stream error', err)
+      isLoading.value = false
+      messages.value[aiMsgIndex].content = '抱歉，服务暂时不可用，请稍后再试。'
+      scrollToBottom()
+    }
+  )
 }
 
 function scrollToBottom() {
@@ -140,6 +240,25 @@ function scrollToBottom() {
   flex-direction: column;
   height: 100vh;
   background: #f5f5f5;
+}
+
+/* 记忆按钮（浮在右上角） */
+.memory-btn {
+  position: fixed;
+  top: calc(20rpx + env(safe-area-inset-top));
+  right: 24rpx;
+  z-index: 100;
+  background: rgba(255,255,255,0.9);
+  border-radius: 50%;
+  width: 72rpx;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.12);
+}
+.memory-icon {
+  font-size: 36rpx;
 }
 
 .msg-list {
@@ -258,6 +377,111 @@ function scrollToBottom() {
   line-height: 1.2;
 }
 .send-btn[disabled] {
+  opacity: 0.5;
+}
+
+/* 记忆 Popup */
+.popup-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 999;
+  display: flex;
+  align-items: flex-end;
+}
+
+.memory-popup {
+  width: 100%;
+  background: #fff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 40rpx 40rpx calc(40rpx + env(safe-area-inset-bottom));
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32rpx;
+}
+.popup-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+.popup-close {
+  font-size: 36rpx;
+  color: #999;
+  padding: 8rpx;
+}
+
+.memory-loading,
+.memory-empty {
+  text-align: center;
+  color: #999;
+  font-size: 28rpx;
+  padding: 40rpx 0;
+}
+
+.memory-content {
+  margin-bottom: 32rpx;
+}
+
+.memory-section {
+  margin-bottom: 28rpx;
+}
+.section-label {
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 12rpx;
+  display: block;
+}
+.section-text {
+  font-size: 28rpx;
+  color: #333;
+  line-height: 1.6;
+}
+
+.fact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+.fact-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+}
+.fact-dot {
+  color: #4A90D9;
+  font-size: 32rpx;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+.fact-text {
+  font-size: 28rpx;
+  color: #333;
+  line-height: 1.6;
+}
+
+.memory-updated {
+  margin-top: 24rpx;
+  font-size: 22rpx;
+  color: #bbb;
+}
+
+.clear-btn {
+  width: 100%;
+  background: #fff;
+  border: 1rpx solid #ff4d4f;
+  color: #ff4d4f;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  padding: 22rpx 0;
+  margin-top: 8rpx;
+}
+.clear-btn[disabled] {
   opacity: 0.5;
 }
 </style>

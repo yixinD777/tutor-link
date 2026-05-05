@@ -198,30 +198,11 @@ async function handleAction(type) {
         success: async (res) => {
           if (res.confirm) {
             try {
-              const payData = await prepay(orderId.value)
-              // 微信支付
-              if (payData && payData.wxPayParams) {
-                uni.requestPayment({
-                  provider: 'wxpay',
-                  timeStamp: payData.wxPayParams.timeStamp,
-                  nonceStr: payData.wxPayParams.nonceStr,
-                  package: payData.wxPayParams.packageValue,
-                  signType: payData.wxPayParams.signType || 'RSA',
-                  paySign: payData.wxPayParams.paySign,
-                  success: () => {
-                    uni.showToast({ title: '支付成功', icon: 'success' })
-                    loadDetail()
-                  },
-                  fail: () => {
-                    uni.showToast({ title: '支付取消', icon: 'none' })
-                  }
-                })
-              } else {
-                uni.showToast({ title: '支付处理中', icon: 'none' })
-                setTimeout(() => loadDetail(), 2000)
-              }
+              await prepay(orderId.value)
+              uni.showToast({ title: '支付成功', icon: 'success' })
+              loadDetail()
             } catch (e) {
-              uni.showToast({ title: '支付失败', icon: 'none' })
+              uni.showToast({ title: e.message || '支付失败', icon: 'none' })
             }
           }
         }

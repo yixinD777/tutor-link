@@ -16,6 +16,7 @@
     { "path": "pages/trial/detail", "style": { "navigationBarTitleText": "试课详情" } },
     { "path": "pages/schedule/create", "style": { "navigationBarTitleText": "创建排期" } },
     { "path": "pages/schedule/detail", "style": { "navigationBarTitleText": "排期详情" } },
+    { "path": "pages/schedule/list", "style": { "navigationBarTitleText": "课程排期" } },
     { "path": "pages/advisor/chat", "style": { "navigationBarTitleText": "AI顾问" } }
   ],
   "globalStyle": {
@@ -33,6 +34,7 @@
       { "pagePath": "pages/index/index", "text": "需求", "iconPath": "static/tab-home.png", "selectedIconPath": "static/tab-home-active.png" },
       { "pagePath": "pages/order/list", "text": "订单", "iconPath": "static/tab-order.png", "selectedIconPath": "static/tab-order-active.png" },
       { "pagePath": "pages/chat/list", "text": "消息", "iconPath": "static/tab-chat.png", "selectedIconPath": "static/tab-chat-active.png" },
+      { "pagePath": "pages/schedule/list", "text": "排期", "iconPath": "static/tab-schedule.png", "selectedIconPath": "static/tab-schedule-active.png" },
       { "pagePath": "pages/profile/index", "text": "我的", "iconPath": "static/tab-profile.png", "selectedIconPath": "static/tab-profile-active.png" }
     ]
   }

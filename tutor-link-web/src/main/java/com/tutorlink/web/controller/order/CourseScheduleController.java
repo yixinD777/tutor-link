@@ -2,6 +2,7 @@ package com.tutorlink.web.controller.order;
 
 import com.tutorlink.common.response.ApiResult;
 import com.tutorlink.model.dto.order.CourseScheduleRequest;
+import com.tutorlink.model.dto.order.MyScheduleResponse;
 import com.tutorlink.model.entity.CourseSchedule;
 import com.tutorlink.model.entity.LessonSession;
 import com.tutorlink.service.order.CourseScheduleService;
@@ -24,12 +25,37 @@ public class CourseScheduleController {
     private final CourseScheduleService scheduleService;
     private final LessonSessionService sessionService;
 
-    @Operation(summary = "家长创建排期")
+    @Operation(summary = "创建课程排期（家长或家教均可发起）")
     @PostMapping
     public ApiResult<List<CourseSchedule>> createSchedules(
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody CourseScheduleRequest request) {
         return ApiResult.success(scheduleService.createSchedules(userId, request));
+    }
+
+    @Operation(summary = "我的排期列表")
+    @GetMapping("/my")
+    public ApiResult<List<MyScheduleResponse>> listMySchedules(
+            @AuthenticationPrincipal Long userId) {
+        return ApiResult.success(scheduleService.listMySchedules(userId));
+    }
+
+    @Operation(summary = "确认排期")
+    @PutMapping("/{id}/confirm")
+    public ApiResult<Void> confirmSchedule(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Long userId) {
+        scheduleService.confirmSchedule(id, userId);
+        return ApiResult.success();
+    }
+
+    @Operation(summary = "拒绝排期")
+    @PutMapping("/{id}/reject")
+    public ApiResult<Void> rejectSchedule(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Long userId) {
+        scheduleService.rejectSchedule(id, userId);
+        return ApiResult.success();
     }
 
     @Operation(summary = "查询订单的排期")

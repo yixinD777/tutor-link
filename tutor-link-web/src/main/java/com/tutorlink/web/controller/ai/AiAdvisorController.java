@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
+import java.util.Map;
 
 @Tag(name = "AI顾问")
 @RestController
@@ -32,14 +33,10 @@ public class AiAdvisorController {
     }
 
     @Operation(summary = "AI聊天（流式SSE）")
-    @GetMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chatStream(
             @AuthenticationPrincipal Long userId,
-            @RequestParam String message,
-            @RequestParam(required = false) String conversationId) {
-        AiChatRequest request = new AiChatRequest();
-        request.setMessage(message);
-        request.setConversationId(conversationId);
+            @Valid @RequestBody AiChatRequest request) {
         return aiAdvisorService.chatStream(userId, request);
     }
 
@@ -47,5 +44,20 @@ public class AiAdvisorController {
     @GetMapping("/suggestions")
     public ApiResult<List<String>> suggestions() {
         return ApiResult.success(aiAdvisorService.getSuggestions());
+    }
+
+    @Operation(summary = "查询我的长期记忆")
+    @GetMapping("/memory")
+    public ApiResult<Map<String, Object>> getMemory(
+            @AuthenticationPrincipal Long userId) {
+        return ApiResult.success(aiAdvisorService.getMemory(userId));
+    }
+
+    @Operation(summary = "清除我的长期记忆")
+    @DeleteMapping("/memory")
+    public ApiResult<Void> clearMemory(
+            @AuthenticationPrincipal Long userId) {
+        aiAdvisorService.clearMemory(userId);
+        return ApiResult.success(null);
     }
 }

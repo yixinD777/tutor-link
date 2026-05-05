@@ -3,6 +3,14 @@
     <view class="form-card">
       <text class="form-title">创建课程排期</text>
 
+      <!-- 订单选择（无 orderId 时显示） -->
+      <view class="form-group" v-if="!orderId">
+        <text class="label">选择订单</text>
+        <picker :range="orderLabels" @change="onOrderChange">
+          <view class="picker-text">{{ selectedOrderLabel || '请选择订单' }}</view>
+        </picker>
+      </view>
+
       <view v-for="(item, idx) in schedules" :key="idx" class="schedule-item">
         <view class="item-header">
           <text class="item-title">排期 {{ idx + 1 }}</text>
@@ -45,18 +53,25 @@
       </view>
 
       <button class="add-btn" @tap="addItem">+ 添加排期</button>
-      <button class="submit-btn" @tap="submit">创建排期</button>
+      <button class="submit-btn" @tap="submit">提交排期</button>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import { post, get } from '../../api/request'
 
 const orderId = ref(null)
 const today = ref(new Date().toISOString().split('T')[0])
 const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+
+// 订单选择器
+const orders = ref([])
+const selectedOrderIdx = ref(-1)
+const orderLabels = computed(() => orders.value.map(o => `${o.title} - ¥${o.hourlyRate / 100}/时`))
+const selectedOrderLabel = computed(() => selectedOrderIdx.value >= 0 ? orderLabels.value[selectedOrderIdx.value] : '')
 
 const schedules = ref([{
   dayOfWeek: 1, startTime: '', endTime: '',
@@ -65,10 +80,35 @@ const schedules = ref([{
 }])
 
 onLoad((options) => {
-  orderId.value = options.orderId
+  if (options.orderId) {
+    orderId.value = options.orderId
+  } else {
+    loadOrders()
+  }
   if (options.address) schedules.value[0].teachingAddress = options.address
   if (options.mode) schedules.value[0].teachingMode = Number(options.mode)
 })
+
+async function loadOrders() {
+  try {
+    const data = await get('/orders', { page: 1, size: 50, role: 0 })
+    // 只显示已支付或进行中的订单
+    orders.value = (data.records || []).filter(o => o.status === 3 || o.status === 4)
+  } catch (e) { console.error(e) }
+}
+
+function onOrderChange(e) {
+  selectedOrderIdx.value = Number(e.detail.value)
+  if (orders.value[selectedOrderIdx.value]) {
+    orderId.value = orders.value[selectedOrderIdx.value].id
+    // 自动填充课时费
+    if (orders.value[selectedOrderIdx.value].hourlyRate) {
+      schedules.value.forEach(s => {
+        if (!s.hourlyRate) s.hourlyRate = (orders.value[selectedOrderIdx.value].hourlyRate / 100).toString()
+      })
+    }
+  }
+}
 
 function addItem() {
   schedules.value.push({
@@ -82,6 +122,10 @@ function addItem() {
 function removeItem(idx) { schedules.value.splice(idx, 1) }
 
 async function submit() {
+  if (!orderId.value) {
+    uni.showToast({ title: '请选择订单', icon: 'none' }); return
+  }
+
   const items = schedules.value.map(s => ({
     ...s,
     hourlyRate: Math.round(parseFloat(s.hourlyRate) * 100)
@@ -93,20 +137,11 @@ async function submit() {
   }
 
   try {
-    const res = await uni.request({
-      url: '/api/v1/schedules',
-      method: 'POST',
-      header: { 'Authorization': `Bearer ${uni.getStorageSync('accessToken')}` },
-      data: { orderId: Number(orderId.value), schedules: items }
-    })
-    if (res.data.code === 200) {
-      uni.showToast({ title: '排期创建成功', icon: 'success' })
-      setTimeout(() => uni.navigateBack(), 1500)
-    } else {
-      uni.showToast({ title: res.data.message || '创建失败', icon: 'none' })
-    }
+    await post('/schedules', { orderId: orderId.value, schedules: items })
+    uni.showToast({ title: '已提交，等待对方确认', icon: 'success' })
+    setTimeout(() => uni.navigateBack(), 1500)
   } catch (e) {
-    uni.showToast({ title: '请求失败', icon: 'none' })
+    uni.showToast({ title: e.message || '创建失败', icon: 'none' })
   }
 }
 </script>

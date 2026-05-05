@@ -48,7 +48,12 @@ public enum ResultCode {
     // AI顾问相关 6xxx
     AI_SERVICE_ERROR(6001, "AI服务异常"),
     AI_RATE_LIMITED(6002, "AI请求过于频繁"),
-    AI_NOT_CONFIGURED(6003, "AI服务未配置");
+    AI_NOT_CONFIGURED(6003, "AI服务未配置"),
+
+    // 排期相关 7xxx
+    SCHEDULE_NOT_FOUND(7001, "排期不存在"),
+    SCHEDULE_STATUS_INVALID(7002, "排期状态不允许此操作"),
+    SCHEDULE_CANNOT_CONFIRM_OWN(7004, "不能确认自己创建的排期");
 
     private final int code;
     private final String message;

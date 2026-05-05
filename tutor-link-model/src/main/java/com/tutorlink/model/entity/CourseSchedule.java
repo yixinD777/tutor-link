@@ -15,6 +15,7 @@ public class CourseSchedule extends MpBaseEntity {
     private Long orderId;
     private Long parentUserId;
     private Long tutorUserId;
+    private Long createdByUserId;
     private Integer dayOfWeek;
     private LocalTime startTime;
     private LocalTime endTime;

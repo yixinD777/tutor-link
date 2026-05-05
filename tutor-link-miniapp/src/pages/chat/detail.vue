@@ -3,40 +3,46 @@
     <!-- 消息列表 -->
     <scroll-view scroll-y class="msg-list" :scroll-top="scrollTop" :scroll-with-animation="true">
       <view v-for="msg in messages" :key="msg.id"
-        class="msg-item" :class="{ 'msg-self': msg.senderId === userId }">
+        class="msg-item" :class="{ 'msg-self': msg.senderId == userId }">
 
-        <!-- 文本消息 (msgType=1) -->
-        <view v-if="msg.msgType === 1" class="msg-bubble">
-          <text class="msg-text">{{ msg.content }}</text>
+        <!-- 头像 -->
+        <image class="msg-avatar" :src="msg.senderId == userId ? userAvatar : otherAvatar" mode="aspectFill" />
+
+        <!-- 气泡 + 时间 -->
+        <view class="msg-body">
+          <!-- 文本消息 (msgType=1) -->
+          <view v-if="msg.msgType === 1" class="msg-bubble">
+            <text class="msg-text">{{ msg.content }}</text>
+          </view>
+
+          <!-- 订单卡片 (msgType=3) -->
+          <view v-else-if="msg.msgType === 3" class="msg-bubble order-card" @tap="goOrderDetail(msg.content)">
+            <text class="card-title">📋 家教需求</text>
+            <text class="card-info">{{ parseOrderCard(msg.content) }}</text>
+            <text class="card-link">点击查看详情 ›</text>
+          </view>
+
+          <!-- 试课卡片 (msgType=4) -->
+          <view v-else-if="msg.msgType === 4" class="msg-bubble trial-card" @tap="goTrialDetail(msg.content)">
+            <text class="card-title">🎓 试课邀请</text>
+            <text class="card-info">{{ parseTrialCard(msg.content) }}</text>
+            <text class="card-link">点击查看详情 ›</text>
+          </view>
+
+          <!-- 排期卡片 (msgType=5) -->
+          <view v-else-if="msg.msgType === 5" class="msg-bubble schedule-card" @tap="goScheduleDetail(msg.content)">
+            <text class="card-title">📅 课程排期</text>
+            <text class="card-info">{{ parseScheduleCard(msg.content) }}</text>
+            <text class="card-link">点击查看详情 ›</text>
+          </view>
+
+          <!-- 其他消息 -->
+          <view v-else class="msg-bubble">
+            <text class="msg-text">{{ msg.content }}</text>
+          </view>
+
+          <text class="msg-time">{{ formatMsgTime(msg.createTime) }}</text>
         </view>
-
-        <!-- 订单卡片 (msgType=3) -->
-        <view v-else-if="msg.msgType === 3" class="msg-bubble order-card" @tap="goOrderDetail(msg.content)">
-          <text class="card-title">📋 家教需求</text>
-          <text class="card-info">{{ parseOrderCard(msg.content) }}</text>
-          <text class="card-link">点击查看详情 ›</text>
-        </view>
-
-        <!-- 试课卡片 (msgType=4) -->
-        <view v-else-if="msg.msgType === 4" class="msg-bubble trial-card" @tap="goTrialDetail(msg.content)">
-          <text class="card-title">🎓 试课邀请</text>
-          <text class="card-info">{{ parseTrialCard(msg.content) }}</text>
-          <text class="card-link">点击查看详情 ›</text>
-        </view>
-
-        <!-- 排期卡片 (msgType=5) -->
-        <view v-else-if="msg.msgType === 5" class="msg-bubble schedule-card" @tap="goScheduleDetail(msg.content)">
-          <text class="card-title">📅 课程排期</text>
-          <text class="card-info">{{ parseScheduleCard(msg.content) }}</text>
-          <text class="card-link">点击查看详情 ›</text>
-        </view>
-
-        <!-- 其他消息 -->
-        <view v-else class="msg-bubble">
-          <text class="msg-text">{{ msg.content }}</text>
-        </view>
-
-        <text class="msg-time">{{ formatMsgTime(msg.createTime) }}</text>
       </view>
     </scroll-view>
 
@@ -58,8 +64,10 @@ import { listMessages, markAsRead, sendMessage as sendChatMsg } from '../../api/
 import { useUserStore } from '../../store/user'
 
 const userStore = useUserStore()
-const userId = Number(userStore.userId)
+const userId = userStore.userId
 const isParent = userStore.isParent()
+const userAvatar = userStore.avatarUrl || '/static/default-avatar.png'
+const otherAvatar = ref('/static/default-avatar.png')
 const conversationId = ref(null)
 const otherUserId = ref(null)
 const orderId = ref(null)
@@ -161,10 +169,20 @@ function formatMsgTime(t) { return t ? t.replace('T', ' ').substring(11, 16) : '
 <style scoped>
 .page { display: flex; flex-direction: column; height: 100vh; background: #f5f5f5; }
 .msg-list { flex: 1; padding: 20rpx; }
-.msg-item { display: flex; flex-direction: column; margin-bottom: 24rpx; align-items: flex-start; }
-.msg-self { align-items: flex-end; }
-.msg-bubble { max-width: 70%; padding: 20rpx 24rpx; border-radius: 16rpx; background: #fff; }
-.msg-self .msg-bubble { background: #4A90D9; }
+
+/* 消息行：横向，对方消息头像在左，自己消息头像在右 */
+.msg-item { display: flex; flex-direction: row; margin-bottom: 24rpx; align-items: flex-start; }
+.msg-self { flex-direction: row-reverse; }
+
+.msg-avatar { width: 72rpx; height: 72rpx; border-radius: 50%; flex-shrink: 0; }
+
+/* 气泡+时间竖向排列 */
+.msg-body { display: flex; flex-direction: column; max-width: 70%; margin: 0 16rpx; }
+.msg-self .msg-body { align-items: flex-end; }
+
+.msg-bubble { padding: 20rpx 24rpx; border-radius: 16rpx; background: #fff; }
+.msg-self .msg-bubble { background: #4A90D9; border-top-right-radius: 4rpx; }
+.msg-item:not(.msg-self) .msg-bubble { border-top-left-radius: 4rpx; }
 .msg-text { font-size: 28rpx; line-height: 1.5; color: #333; word-break: break-all; }
 .msg-self .msg-text { color: #fff; }
 .msg-time { font-size: 20rpx; color: #999; margin-top: 4rpx; }

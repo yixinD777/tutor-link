@@ -8,8 +8,10 @@ import java.time.LocalDateTime;
 @Data
 public class TrialLessonRequest {
 
-    @NotNull(message = "订单ID不能为空")
     private Long orderId;
+
+    @NotNull(message = "家教用户ID不能为空")
+    private Long tutorUserId;
 
     @NotNull(message = "试课时间不能为空")
     private LocalDateTime trialDate;

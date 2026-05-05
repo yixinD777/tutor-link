@@ -27,23 +27,18 @@ public class PaymentController {
     private final WechatPayService wechatPayService;
     private final RefundService refundService;
 
-    @Operation(summary = "创建预付单 (家长支付)")
+    @Operation(summary = "创建预付单 (家长支付) - 开发环境自动支付成功")
     @PreAuthorize("hasRole('PARENT')")
     @PostMapping("/prepay")
-    public ApiResult<Map<String, String>> createPrepay(
+    public ApiResult<Payment> createPrepay(
             @AuthenticationPrincipal Long userId,
             @RequestParam Long orderId) {
         Payment payment = paymentService.createPayment(orderId);
 
-        // TODO: 获取用户 openid
-        String openid = "";
-        Map<String, String> payParams = wechatPayService.createJsapiPrepay(
-                payment.getPaymentNo(),
-                payment.getAmount(),
-                "家教订单支付",
-                openid
-        );
-        return ApiResult.success(payParams);
+        // 开发环境：跳过微信支付，直接模拟支付成功
+        paymentService.handlePayCallback(payment.getPaymentNo(), "DEV_MOCK_" + payment.getPaymentNo());
+
+        return ApiResult.success(payment);
     }
 
     @Operation(summary = "微信支付回调")

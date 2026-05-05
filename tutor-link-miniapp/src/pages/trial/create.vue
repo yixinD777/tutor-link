@@ -43,7 +43,7 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { sendMessage } from '../../api/chat'
+import { post } from '../../api/request'
 
 const orderId = ref(null)
 const tutorUserId = ref(null)
@@ -84,28 +84,20 @@ async function submit() {
 
   try {
     // 创建试课
-    const res = await uni.request({
-      url: '/api/v1/trials',
-      method: 'POST',
-      header: { 'Authorization': `Bearer ${uni.getStorageSync('accessToken')}` },
-      data: {
-        orderId: Number(orderId.value),
-        trialDate,
-        trialDuration: Number(form.value.trialDuration),
-        trialPrice,
-        trialAddress: form.value.trialAddress,
-        trialMode: form.value.trialMode
-      }
+    const res = await post('/trials', {
+      orderId: orderId.value || null,
+      tutorUserId: tutorUserId.value,
+      trialDate,
+      trialDuration: Number(form.value.trialDuration),
+      trialPrice,
+      trialAddress: form.value.trialAddress,
+      trialMode: form.value.trialMode
     })
 
-    if (res.data.code === 200) {
-      uni.showToast({ title: '试课邀请已发送', icon: 'success' })
-      setTimeout(() => uni.navigateBack(), 1500)
-    } else {
-      uni.showToast({ title: res.data.message || '创建失败', icon: 'none' })
-    }
+    uni.showToast({ title: '试课邀请已发送', icon: 'success' })
+    setTimeout(() => uni.navigateBack(), 1500)
   } catch (e) {
-    uni.showToast({ title: '请求失败', icon: 'none' })
+    uni.showToast({ title: e.message || '创建失败', icon: 'none' })
   }
 }
 </script>

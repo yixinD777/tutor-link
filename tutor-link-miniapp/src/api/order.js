@@ -50,7 +50,7 @@ export function completeOrder(id) {
   return put(`/orders/${id}/complete`)
 }
 
-// 支付预下单
+// 支付预下单（开发环境自动支付成功）
 export function prepay(orderId) {
-  return post('/payments/prepay', { orderId })
+  return post(`/payments/prepay?orderId=${orderId}`)
 }

@@ -65,7 +65,7 @@
     <!-- 操作按钮 -->
     <view class="action-bar">
       <button class="chat-btn" @tap="goChat">在线沟通</button>
-      <button class="order-btn" @tap="goCreateOrder">预约试课</button>
+      <button class="order-btn" @tap="goTrialLesson">预约试课</button>
     </view>
   </view>
 
@@ -140,7 +140,7 @@ function formatRating(rating) {
 }
 
 function goChat() { uni.navigateTo({ url: `/pages/chat/detail?otherUserId=${userId.value}` }) }
-function goCreateOrder() { uni.navigateTo({ url: `/pages/order/create?tutorUserId=${userId.value}` }) }
+function goTrialLesson() { uni.navigateTo({ url: `/pages/trial/create?tutorUserId=${userId.value}` }) }
 </script>
 
 <style scoped>

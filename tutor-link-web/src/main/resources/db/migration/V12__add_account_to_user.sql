@@ -1,11 +1,11 @@
--- V9: chat_message 表缺少 update_time 列
+-- V12: user 表新增 account 列（账号密码登录）
 SET @dbname = DATABASE();
-SET @tablename = 'chat_message';
-SET @columnname = 'update_time';
+SET @tablename = 'user';
+SET @columnname = 'account';
 SET @preparedStatement = (SELECT IF(
   (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
   'SELECT 1',
-  'ALTER TABLE `chat_message` ADD COLUMN `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER `create_time`'
+  'ALTER TABLE `user` ADD COLUMN `account` VARCHAR(50) DEFAULT NULL UNIQUE AFTER `id`'
 ));
 PREPARE alterIfNotExists FROM @preparedStatement;
 EXECUTE alterIfNotExists;

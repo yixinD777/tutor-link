@@ -30,22 +30,35 @@ public class TrialLessonService {
 
     /**
      * 家长创建试课邀请
+     * 支持两种场景：
+     * 1. 从订单进入：有 orderId，校验订单归属和状态
+     * 2. 从家教详情页直接预约：无 orderId，只需 tutorUserId
      */
     @Transactional(rollbackFor = Exception.class)
     public TrialLesson createTrial(Long parentUserId, TrialLessonRequest request) {
-        Order order = orderMapper.selectById(request.getOrderId());
-        if (order == null || !order.getParentUserId().equals(parentUserId)) {
-            throw new BusinessException(ResultCode.FORBIDDEN);
+        Long tutorUserId = request.getTutorUserId();
+
+        if (request.getOrderId() != null) {
+            // 有订单：校验订单归属和状态
+            Order order = orderMapper.selectById(request.getOrderId());
+            if (order == null || !order.getParentUserId().equals(parentUserId)) {
+                throw new BusinessException(ResultCode.FORBIDDEN);
+            }
+            if (order.getStatus() != OrderStatus.CONFIRMED.getCode()) {
+                throw new BusinessException(ResultCode.ORDER_STATUS_INVALID, "当前订单状态不允许创建试课");
+            }
+            tutorUserId = order.getTutorUserId();
         }
-        if (order.getStatus() != OrderStatus.CONFIRMED.getCode()) {
-            throw new BusinessException(ResultCode.ORDER_STATUS_INVALID, "当前订单状态不允许创建试课");
+
+        if (tutorUserId == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "家教用户ID不能为空");
         }
 
         TrialLesson trial = new TrialLesson();
         trial.setId(SnowflakeIdUtil.nextId());
-        trial.setOrderId(order.getId());
+        trial.setOrderId(request.getOrderId());
         trial.setParentUserId(parentUserId);
-        trial.setTutorUserId(order.getTutorUserId());
+        trial.setTutorUserId(tutorUserId);
         trial.setTrialDate(request.getTrialDate());
         trial.setTrialDuration(request.getTrialDuration());
         trial.setTrialPrice(request.getTrialPrice());
@@ -55,7 +68,7 @@ public class TrialLessonService {
         trialLessonMapper.insert(trial);
 
         // 发送试课卡片消息给老师
-        chatService.sendMessage(parentUserId, order.getTutorUserId(), 4,
+        chatService.sendMessage(parentUserId, tutorUserId, 4,
                 String.format("{\"trialId\":%d,\"trialDate\":\"%s\",\"trialPrice\":%d,\"trialAddress\":\"%s\",\"trialMode\":%d}",
                         trial.getId(), trial.getTrialDate(), trial.getTrialPrice(),
                         trial.getTrialAddress(), trial.getTrialMode()));

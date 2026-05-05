@@ -3,7 +3,7 @@
 -- 试课表
 CREATE TABLE `trial_lesson` (
     `id`                BIGINT        NOT NULL,
-    `order_id`          BIGINT        NOT NULL,
+    `order_id`          BIGINT        DEFAULT NULL COMMENT '关联订单ID，直接预约试课时可为空',
     `parent_user_id`    BIGINT        NOT NULL,
     `tutor_user_id`     BIGINT        NOT NULL,
     `trial_date`        DATETIME      NOT NULL COMMENT '试课日期时间',
