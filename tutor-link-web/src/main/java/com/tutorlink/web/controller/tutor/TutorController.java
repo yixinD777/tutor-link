@@ -2,6 +2,7 @@ package com.tutorlink.web.controller.tutor;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.tutorlink.common.response.ApiResult;
+import com.tutorlink.model.dto.tutor.RegionVO;
 import com.tutorlink.model.entity.TutorProfile;
 import com.tutorlink.model.entity.TutorSubject;
 import com.tutorlink.service.search.TutorSearchService;
@@ -38,13 +39,20 @@ public class TutorController {
             @RequestParam(required = false) BigDecimal longitude,
             @RequestParam(required = false) BigDecimal latitude,
             @RequestParam(required = false) Double distanceKm,
+            @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "rating") String sortBy,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer size) {
         return ApiResult.success(tutorSearchService.searchTutors(
                 subjectId, grade, hourlyRateMin, hourlyRateMax,
                 province, city, district, longitude, latitude, distanceKm,
-                sortBy, page, size));
+                keyword, sortBy, page, size));
+    }
+
+    @Operation(summary = "获取有家教的地区列表")
+    @GetMapping("/regions")
+    public ApiResult<List<RegionVO>> getAvailableRegions() {
+        return ApiResult.success(tutorSearchService.getAvailableRegions());
     }
 
     @Operation(summary = "获取家教详情")
@@ -60,7 +68,7 @@ public class TutorController {
     }
 
     @Operation(summary = "初始化家教档案")
-    @PreAuthorize("hasRole('TUTOR')")
+    @PreAuthorize("hasRole('PARENT')")
     @PostMapping("/me/init")
     public ApiResult<TutorProfile> initTutorProfile(@AuthenticationPrincipal Long userId) {
         return ApiResult.success(tutorProfileService.initTutorProfile(userId));

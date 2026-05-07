@@ -6,6 +6,8 @@ import com.tutorlink.common.exception.BusinessException;
 import com.tutorlink.dao.mapper.OrderLogMapper;
 import com.tutorlink.dao.mapper.OrderMapper;
 import com.tutorlink.dao.mapper.OutboxMessageMapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.tutorlink.mq.message.OrderEventMessage;
 import com.tutorlink.model.dto.order.OrderCancelRequest;
 import com.tutorlink.model.dto.order.OrderCreateRequest;
@@ -70,32 +72,60 @@ public class OrderStateMachine {
     }
 
     /**
-     * 家教接单
+     * 家教表达意向 (PENDING → INTERESTED)
      */
     @Transactional(rollbackFor = Exception.class)
-    public void acceptOrder(Long orderId, Long tutorUserId) {
+    public void expressInterest(Long orderId, Long tutorUserId) {
         Order order = getOrderOrThrow(orderId);
-        validateTransition(order.getStatus(), OrderStatus.CONFIRMED);
+        validateTransition(order.getStatus(), OrderStatus.INTERESTED);
 
         int updated = orderMapper.update(null,
                 new LambdaUpdateWrapper<Order>()
                         .eq(Order::getId, orderId)
                         .eq(Order::getStatus, OrderStatus.PENDING.getCode())
+                        .set(Order::getStatus, OrderStatus.INTERESTED.getCode())
+                        .set(Order::getTutorUserId, tutorUserId));
+        if (updated == 0) {
+            throw new BusinessException(ResultCode.ORDER_STATUS_INVALID, "订单状态已变更，请刷新重试");
+        }
+
+        order.setStatus(OrderStatus.INTERESTED.getCode());
+        order.setTutorUserId(tutorUserId);
+
+        insertOrderLog(orderId, OrderStatus.PENDING.getCode(), OrderStatus.INTERESTED.getCode(),
+                tutorUserId, 2, "EXPRESS_INTEREST", "家教表达意向");
+
+        publishOutboxEvent(order, OrderStatus.PENDING, OrderStatus.INTERESTED, "ORDER_INTERESTED", tutorUserId, 2);
+    }
+
+    /**
+     * 家长确认委托 (INTERESTED → CONFIRMED)
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void confirmDelegation(Long orderId, Long parentUserId) {
+        Order order = getOrderOrThrow(orderId);
+        if (!order.getParentUserId().equals(parentUserId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN);
+        }
+        validateTransition(order.getStatus(), OrderStatus.CONFIRMED);
+
+        int updated = orderMapper.update(null,
+                new LambdaUpdateWrapper<Order>()
+                        .eq(Order::getId, orderId)
+                        .eq(Order::getStatus, OrderStatus.INTERESTED.getCode())
                         .set(Order::getStatus, OrderStatus.CONFIRMED.getCode())
-                        .set(Order::getTutorUserId, tutorUserId)
                         .set(Order::getConfirmTime, LocalDateTime.now()));
         if (updated == 0) {
             throw new BusinessException(ResultCode.ORDER_STATUS_INVALID, "订单状态已变更，请刷新重试");
         }
 
         order.setStatus(OrderStatus.CONFIRMED.getCode());
-        order.setTutorUserId(tutorUserId);
         order.setConfirmTime(LocalDateTime.now());
 
-        insertOrderLog(orderId, OrderStatus.PENDING.getCode(), OrderStatus.CONFIRMED.getCode(),
-                tutorUserId, 2, "ACCEPT", "家教接单");
+        insertOrderLog(orderId, OrderStatus.INTERESTED.getCode(), OrderStatus.CONFIRMED.getCode(),
+                parentUserId, 1, "CONFIRM_DELEGATION", "家长确认委托");
 
-        publishOutboxEvent(order, OrderStatus.PENDING, OrderStatus.CONFIRMED, "ORDER_CONFIRMED", tutorUserId, 2);
+        publishOutboxEvent(order, OrderStatus.INTERESTED, OrderStatus.CONFIRMED, "ORDER_CONFIRMED", parentUserId, 1);
     }
 
     /**
@@ -284,10 +314,11 @@ public class OrderStateMachine {
     private void validateTransition(int currentStatus, OrderStatus targetStatus) {
         OrderStatus current = OrderStatus.fromCode(currentStatus);
         boolean valid = switch (targetStatus) {
-            case CONFIRMED -> current == OrderStatus.PENDING;
+            case INTERESTED -> current == OrderStatus.PENDING;
+            case CONFIRMED -> current == OrderStatus.INTERESTED;
             case IN_PROGRESS -> current == OrderStatus.PAID;
             case COMPLETED -> current == OrderStatus.IN_PROGRESS;
-            case CANCELLED -> current == OrderStatus.PENDING || current == OrderStatus.CONFIRMED;
+            case CANCELLED -> current == OrderStatus.PENDING || current == OrderStatus.INTERESTED || current == OrderStatus.CONFIRMED;
             case TRIAL -> current == OrderStatus.CONFIRMED;
             default -> false;
         };

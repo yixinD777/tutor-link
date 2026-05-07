@@ -14,3 +14,8 @@ export function getTutorDetail(userId) {
 export function getTutorSubjects(userId) {
   return get(`/tutors/${userId}/subjects`)
 }
+
+// 获取有家教的地区列表
+export function getAvailableRegions() {
+  return get('/tutors/regions')
+}

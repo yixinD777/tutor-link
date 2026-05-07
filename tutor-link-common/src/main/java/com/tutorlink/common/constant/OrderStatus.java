@@ -16,7 +16,8 @@ public enum OrderStatus {
     REFUNDING(7, "退款中"),
     REFUNDED(8, "已退款"),
     DISPUTED(9, "争议中"),
-    TRIAL(10, "试课中");
+    TRIAL(10, "试课中"),
+    INTERESTED(11, "有意向");
 
     private final int code;
     private final String desc;

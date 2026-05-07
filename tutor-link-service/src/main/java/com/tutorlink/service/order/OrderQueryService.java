@@ -34,12 +34,11 @@ public class OrderQueryService {
     public IPage<Order> listMyOrders(Long userId, int role, Integer status, int page, int size) {
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
 
-        // 家长看自己发布的订单，家教看自己接的订单
+        // 家长看自己发布的订单，家教看自己接的订单（角色互斥，不能同时是家长和家教）
         if (UserRole.hasRole(role, UserRole.ADMIN)) {
             // 管理员看所有订单
         } else if (UserRole.hasRole(role, UserRole.TUTOR)) {
-            wrapper.and(w -> w.eq(Order::getTutorUserId, userId)
-                    .or().eq(Order::getParentUserId, userId));
+            wrapper.eq(Order::getTutorUserId, userId);
         } else {
             wrapper.eq(Order::getParentUserId, userId);
         }
@@ -61,10 +60,14 @@ public class OrderQueryService {
             throw new BusinessException(ResultCode.ORDER_NOT_FOUND);
         }
 
-        // 权限校验：只有订单相关方或管理员可查看
-        if (!UserRole.hasRole(role, UserRole.ADMIN)
-                && !order.getParentUserId().equals(userId)
-                && !userId.equals(order.getTutorUserId())) {
+        // 权限校验：管理员可查看所有；家长/家教可查看自己的订单；家教可查看待接单订单
+        boolean isAdmin = UserRole.hasRole(role, UserRole.ADMIN);
+        boolean isParent = order.getParentUserId().equals(userId);
+        boolean isTutor = userId.equals(order.getTutorUserId());
+        boolean isPendingForTutor = UserRole.hasRole(role, UserRole.TUTOR) && order.getStatus() == OrderStatus.PENDING.getCode();
+        log.debug("[OrderQuery] getOrderDetail orderId={} userId={} role={} isAdmin={} isParent={} isTutor={} isPendingForTutor={} status={}",
+                orderId, userId, role, isAdmin, isParent, isTutor, isPendingForTutor, order.getStatus());
+        if (!isAdmin && !isParent && !isTutor && !isPendingForTutor) {
             throw new BusinessException(ResultCode.FORBIDDEN);
         }
 

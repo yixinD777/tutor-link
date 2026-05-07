@@ -1,5 +1,6 @@
 package com.tutorlink.model.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.tutorlink.model.entity.MpBaseEntity;
 import lombok.Data;
@@ -54,4 +55,12 @@ public class TutorProfile extends MpBaseEntity {
     private BigDecimal latitude;
 
     private Integer isOnline;
+
+    /** 从 user 表关联，非数据库列 */
+    @TableField(exist = false)
+    private String avatarUrl;
+
+    /** 从 user 表关联，非数据库列 */
+    @TableField(exist = false)
+    private String nickname;
 }

@@ -38,12 +38,25 @@ Thumbs.db
 
 ### Env ###
 .env
+.env.local
 *.env.local
+*.env
+
+### Compiled class files (root) ###
+com/
+
+### Claude Code ###
+.claude/
 
 ### Node / Frontend ###
 node_modules/
+**/node_modules/
 dist/
+**/dist/
 .vite/
+**/.vite/
+unpackage/
+**/unpackage/
 
 ### Logs ###
 logs/

@@ -53,9 +53,16 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/subjects/**").permitAll()
                         .requestMatchers("/api/v1/areas/**").permitAll()
                         .requestMatchers("/api/v1/tutors", "/api/v1/tutors/{userId}", "/api/v1/tutors/{userId}/**").permitAll()
+                        .requestMatchers("/api/v1/users/{id}/basic").permitAll()
                         .requestMatchers("/api/v1/payments/wechat-callback").permitAll()
                         .requestMatchers("/api/v1/payments/refund-callback").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/reviews/**").permitAll()
+                        // AI 推荐问题（公开）
+                        .requestMatchers(HttpMethod.GET, "/api/v1/ai/suggestions").permitAll()
+                        // 上传文件静态资源
+                        .requestMatchers("/uploads/**").permitAll()
+                        // API 文档
+                        .requestMatchers("/doc.html", "/v3/api-docs/**", "/swagger-ui/**", "/webjars/**").permitAll()
                         // WebSocket 端点
                         .requestMatchers("/ws/**").permitAll()
                         // 管理员接口

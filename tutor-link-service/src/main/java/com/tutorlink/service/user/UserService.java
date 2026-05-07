@@ -26,4 +26,6 @@ public interface UserService {
     User getUserByPhone(String phone);
 
     void updateLastLogin(Long userId, String ip);
+
+    void updateAvatar(Long userId, String avatarUrl);
 }

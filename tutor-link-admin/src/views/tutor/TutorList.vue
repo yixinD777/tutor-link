@@ -139,7 +139,7 @@
           <el-divider>个人资料</el-divider>
           <el-descriptions :column="2" border>
             <el-descriptions-item label="头像" :span="2">
-              <el-image v-if="detailData.profile.avatar" :src="detailData.profile.avatar" style="width: 60px; height: 60px" fit="cover" />
+              <el-image v-if="detailData.user?.avatarUrl" :src="detailData.user.avatarUrl" style="width: 60px; height: 60px" fit="cover" />
               <span v-else>-</span>
             </el-descriptions-item>
             <el-descriptions-item label="性别">{{ detailData.profile.gender === 1 ? '男' : detailData.profile.gender === 2 ? '女' : '-' }}</el-descriptions-item>

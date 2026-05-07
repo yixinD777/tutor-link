@@ -14,6 +14,7 @@ import java.util.*;
 /**
  * AI 会话管理服务
  * 使用 Redis 存储多轮对话历史，支持上下文截断
+ * Redis key 包含 userId 命名空间，防止跨用户访问会话数据
  */
 @Slf4j
 @Service
@@ -30,15 +31,15 @@ public class AiConversationService {
     /**
      * 获取会话历史（不含当前消息）
      */
-    public List<Map<String, Object>> getHistory(String conversationId) {
+    public List<Map<String, Object>> getHistory(Long userId, String conversationId) {
         if (conversationId == null || conversationId.isBlank()) return new ArrayList<>();
         try {
-            String key = RedisKeyUtil.aiConversation(conversationId);
+            String key = RedisKeyUtil.aiConversation(userId, conversationId);
             String json = redisTemplate.opsForValue().get(key);
             if (json == null) return new ArrayList<>();
             return objectMapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
-            log.warn("Failed to load conversation {}", conversationId, e);
+            log.warn("Failed to load conversation {} for user {}", conversationId, userId, e);
             return new ArrayList<>();
         }
     }
@@ -46,60 +47,60 @@ public class AiConversationService {
     /**
      * 追加一条消息到会话历史
      */
-    public void appendMessage(String conversationId, String role, String content) {
+    public void appendMessage(Long userId, String conversationId, String role, String content) {
         if (conversationId == null || conversationId.isBlank()) return;
         try {
-            List<Map<String, Object>> history = getHistory(conversationId);
+            List<Map<String, Object>> history = getHistory(userId, conversationId);
             history.add(Map.of("role", role, "content", content));
-            saveHistory(conversationId, history);
+            saveHistory(userId, conversationId, history);
         } catch (Exception e) {
-            log.warn("Failed to append message to conversation {}", conversationId, e);
+            log.warn("Failed to append message to conversation {} for user {}", conversationId, userId, e);
         }
     }
 
     /**
      * 追加多条消息（含 tool 相关消息）
      */
-    public void appendMessages(String conversationId, List<Map<String, Object>> messages) {
+    public void appendMessages(Long userId, String conversationId, List<Map<String, Object>> messages) {
         if (conversationId == null || conversationId.isBlank()) return;
         try {
-            List<Map<String, Object>> history = getHistory(conversationId);
+            List<Map<String, Object>> history = getHistory(userId, conversationId);
             history.addAll(messages);
-            saveHistory(conversationId, history);
+            saveHistory(userId, conversationId, history);
         } catch (Exception e) {
-            log.warn("Failed to append messages to conversation {}", conversationId, e);
+            log.warn("Failed to append messages to conversation {} for user {}", conversationId, userId, e);
         }
     }
 
     /**
      * 保存完整历史（含截断）
      */
-    public void saveHistory(String conversationId, List<Map<String, Object>> messages) {
+    public void saveHistory(Long userId, String conversationId, List<Map<String, Object>> messages) {
         if (conversationId == null || conversationId.isBlank()) return;
         try {
             // 按轮次截断：user+assistant 算一轮
             List<Map<String, Object>> trimmed = trimHistory(messages);
-            String key = RedisKeyUtil.aiConversation(conversationId);
+            String key = RedisKeyUtil.aiConversation(userId, conversationId);
             redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(trimmed), TTL);
         } catch (Exception e) {
-            log.warn("Failed to save conversation {}", conversationId, e);
+            log.warn("Failed to save conversation {} for user {}", conversationId, userId, e);
         }
     }
 
     /**
      * 刷新 TTL（用户活跃时延长会话）
      */
-    public void touch(String conversationId) {
+    public void touch(Long userId, String conversationId) {
         if (conversationId == null || conversationId.isBlank()) return;
-        redisTemplate.expire(RedisKeyUtil.aiConversation(conversationId), TTL);
+        redisTemplate.expire(RedisKeyUtil.aiConversation(userId, conversationId), TTL);
     }
 
     /**
      * 删除会话
      */
-    public void clear(String conversationId) {
+    public void clear(Long userId, String conversationId) {
         if (conversationId == null || conversationId.isBlank()) return;
-        redisTemplate.delete(RedisKeyUtil.aiConversation(conversationId));
+        redisTemplate.delete(RedisKeyUtil.aiConversation(userId, conversationId));
     }
 
     /**

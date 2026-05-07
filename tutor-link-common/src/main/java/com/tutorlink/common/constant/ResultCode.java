@@ -53,7 +53,8 @@ public enum ResultCode {
     // 排期相关 7xxx
     SCHEDULE_NOT_FOUND(7001, "排期不存在"),
     SCHEDULE_STATUS_INVALID(7002, "排期状态不允许此操作"),
-    SCHEDULE_CANNOT_CONFIRM_OWN(7004, "不能确认自己创建的排期");
+    SCHEDULE_CANNOT_CONFIRM_OWN(7004, "不能确认自己创建的排期"),
+    SCHEDULE_TIME_CONFLICT(7005, "排期时间冲突");
 
     private final int code;
     private final String message;

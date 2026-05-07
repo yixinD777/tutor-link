@@ -77,6 +77,13 @@ The miniapp (`tutor-link-miniapp/`) is a separate uni-app project, not a Maven m
 
 Spring Boot 3.2.5, MyBatis-Plus 3.5.6, Knife4j 4.4.0, JJWT 0.12.5, Hutool 5.8.26, Spring Kafka 3.1.4, MySQL 8, Redis 7, Kafka 3.7 (KRaft mode, no ZooKeeper)
 
+## Frontend Development Rules
+
+- **MUST use `open-design` skill** before implementing any UI change in `tutor-link-miniapp/` — run `/open-design` to get design suggestions before writing template/style code
+- Design tokens are centralized in `tutor-link-miniapp/src/uni.scss` — never hardcode color/spacing/radius values in page or component styles
+- All shared UI components use the `Tl*` naming convention under `src/components/Tl*/Tl*..vue`, auto-registered via easycom (`^Tl(.*)` pattern in `pages.json`)
+- Shared formatters and constants live in `src/utils/formatters.js` and `src/utils/constants.js` — do not duplicate formatting logic in pages
+
 ## Conventions
 
 - Package root: `com.tutorlink`

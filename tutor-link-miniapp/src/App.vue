@@ -16,14 +16,18 @@ export default {
 }
 </script>
 
-<style>
+<style lang="scss">
+@import './uni.scss';
+
 page {
-  background-color: #f5f5f5;
+  background-color: $color-bg-page;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  color: #333;
+  color: $color-text-regular;
+  font-size: $font-size-base;
+  line-height: $line-height-normal;
 }
 
 .container {
-  padding: 20rpx;
+  padding: $spacing-page;
 }
 </style>

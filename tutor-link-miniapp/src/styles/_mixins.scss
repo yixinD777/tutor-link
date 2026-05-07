@@ -1,0 +1,239 @@
+// ============================================
+// Tutor-Link SCSS Mixins
+// ============================================
+
+// --- Layout ---
+@mixin page-container {
+  background: $color-bg-page;
+  min-height: 100vh;
+  padding: $spacing-page;
+}
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+// --- Card ---
+@mixin card {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-xl;
+  margin-bottom: $spacing-md;
+}
+
+@mixin card-elevated {
+  @include card;
+  box-shadow: $shadow-card;
+}
+
+// --- Form ---
+@mixin form-group {
+  margin-bottom: $spacing-lg;
+}
+
+@mixin form-label {
+  font-size: $font-size-base;
+  color: $color-text-regular;
+  display: block;
+  margin-bottom: $spacing-sm;
+}
+
+@mixin form-input {
+  background: $color-bg-input;
+  border-radius: $radius-md;
+  padding: $spacing-lg;
+  font-size: $font-size-base;
+  color: $color-text-primary;
+}
+
+// --- Button ---
+@mixin btn-primary {
+  background: $color-primary;
+  color: #fff;
+  border-radius: $radius-pill;
+  font-size: $font-size-md;
+  padding: $spacing-lg;
+  text-align: center;
+}
+
+@mixin btn-outline {
+  background: $color-bg-card;
+  color: $color-primary;
+  border: 2rpx solid $color-primary;
+  border-radius: $radius-pill;
+  font-size: $font-size-md;
+  padding: $spacing-lg;
+  text-align: center;
+}
+
+@mixin btn-small($bg: $color-primary, $color: #fff) {
+  background: $bg;
+  color: $color;
+  border-radius: $radius-pill;
+  font-size: $font-size-sm;
+  padding: $spacing-xs $spacing-lg;
+  line-height: 1.2;
+  text-align: center;
+}
+
+// --- Status Badge ---
+@mixin status-badge($bg, $color) {
+  font-size: $font-size-sm;
+  padding: $spacing-xs $spacing-sm;
+  border-radius: $radius-sm;
+  background: $bg;
+  color: $color;
+  display: inline-block;
+  line-height: 1.4;
+}
+
+// --- Tag/Pill ---
+@mixin tag($bg, $color) {
+  font-size: $font-size-xs;
+  border-radius: $radius-sm;
+  padding: $spacing-xs $spacing-sm;
+  background: $bg;
+  color: $color;
+  line-height: 1.4;
+  display: inline-block;
+}
+
+// --- Empty State ---
+@mixin empty-state {
+  text-align: center;
+  padding: $spacing-3xl $spacing-2xl;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+// --- Loading ---
+@mixin loading-tip {
+  text-align: center;
+  padding: $spacing-md;
+  color: $color-text-secondary;
+  font-size: $font-size-sm;
+}
+
+// --- Action Bar (fixed bottom) ---
+@mixin action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  padding: $spacing-md $spacing-xl;
+  padding-bottom: calc(#{$spacing-md} + env(safe-area-inset-bottom));
+  background: $color-bg-card;
+  box-shadow: $shadow-bar;
+  gap: $spacing-md;
+  z-index: $z-index-fixed;
+}
+
+// --- Input Bar (chat) ---
+@mixin input-bar {
+  display: flex;
+  align-items: center;
+  padding: $spacing-md;
+  padding-bottom: calc(#{$spacing-md} + env(safe-area-inset-bottom));
+  background: $color-bg-card;
+  border-top: 1rpx solid $color-border;
+  gap: $spacing-sm;
+}
+
+// --- Section Header ---
+@mixin section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $spacing-md;
+}
+
+// --- Info Row (key-value) ---
+@mixin info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: $spacing-sm 0;
+}
+
+@mixin info-label {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+}
+
+@mixin info-value {
+  font-size: $font-size-sm;
+  color: $color-text-regular;
+}
+
+// --- Timeline Dot ---
+@mixin timeline-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: $radius-round;
+  background: $color-primary;
+  margin-top: $spacing-sm;
+  margin-right: $spacing-md;
+  flex-shrink: 0;
+}
+
+// --- Scroll Tab ---
+@mixin scroll-tab-item {
+  display: inline-block;
+  padding: $spacing-sm $spacing-lg;
+  margin-right: $spacing-md;
+  border-radius: $radius-pill;
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  background: $color-bg-input;
+  transition: all $duration-normal $ease-default;
+}
+
+@mixin scroll-tab-active {
+  background: $color-primary;
+  color: #fff;
+  font-weight: $font-weight-bold;
+}
+
+// --- Avatar ---
+@mixin avatar($size: 72rpx) {
+  width: $size;
+  height: $size;
+  border-radius: $radius-round;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+// --- Dividers ---
+@mixin divider-line {
+  flex: 1;
+  height: 1rpx;
+  background: $color-border;
+}
+
+// --- Ellipsis ---
+@mixin ellipsis($lines: 1) {
+  @if $lines == 1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  } @else {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: $lines;
+    overflow: hidden;
+  }
+}

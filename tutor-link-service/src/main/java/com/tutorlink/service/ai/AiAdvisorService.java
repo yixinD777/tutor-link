@@ -7,12 +7,15 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tutorlink.common.constant.ResultCode;
+import com.tutorlink.common.constant.UserRole;
 import com.tutorlink.common.exception.BusinessException;
 import com.tutorlink.dao.mapper.*;
 import com.tutorlink.model.dto.ai.AiChatRequest;
 import com.tutorlink.model.dto.ai.AiChatResponse;
 import com.tutorlink.model.dto.ai.ToolCallInfo;
+import com.tutorlink.model.dto.order.TrialLessonRequest;
 import com.tutorlink.model.entity.*;
+import com.tutorlink.service.order.TrialLessonService;
 import com.tutorlink.service.search.TutorSearchService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -26,8 +29,10 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -46,9 +51,13 @@ public class AiAdvisorService {
     private final ReviewMapper reviewMapper;
     private final SubjectMapper subjectMapper;
     private final TutorSubjectMapper tutorSubjectMapper;
+    private final TrialLessonService trialLessonService;
     private final ObjectMapper objectMapper;
 
     private String platformRules;
+
+    /** 合法的 conversationId 格式：32 位十六进制（UUID 去横线） */
+    private static final Pattern CONV_ID_PATTERN = Pattern.compile("^[a-f0-9]{32}$");
 
     @PostConstruct
     public void init() {
@@ -69,10 +78,10 @@ public class AiAdvisorService {
         validateConfig();
 
         // 生成或使用已有 conversationId
-        String convId = resolveConversationId(request.getConversationId());
+        String convId = resolveConversationId(userId, request.getConversationId());
 
         // 从 Redis 加载历史,如果有就用 Redis,否则用前端传入的
-        List<Map<String, Object>> messages = buildMessagesWithHistory(request, convId);
+        List<Map<String, Object>> messages = buildMessagesWithHistory(userId, request, convId);
         String systemPrompt = buildSystemPrompt(userId);
         List<Map<String, Object>> tools = buildToolDefinitions();
 
@@ -87,7 +96,7 @@ public class AiAdvisorService {
     public SseEmitter chatStream(Long userId, AiChatRequest request) {
         validateConfig();
 
-        String convId = resolveConversationId(request.getConversationId());
+        String convId = resolveConversationId(userId, request.getConversationId());
 
         SseEmitter emitter = new SseEmitter(120_000L);
         emitter.onTimeout(emitter::complete);
@@ -95,7 +104,7 @@ public class AiAdvisorService {
 
         CompletableFuture.runAsync(() -> {
             try {
-                List<Map<String, Object>> messages = buildMessagesWithHistory(request, convId);
+                List<Map<String, Object>> messages = buildMessagesWithHistory(userId, request, convId);
                 String systemPrompt = buildSystemPrompt(userId);
                 List<Map<String, Object>> tools = buildToolDefinitions();
 
@@ -170,12 +179,11 @@ public class AiAdvisorService {
 
             JsonNode content = responseNode.path("content");
             boolean hasToolUse = false;
+            List<Map<String, Object>> toolResults = new ArrayList<>();
 
             for (JsonNode block : content) {
                 String type = block.path("type").asText();
-                if ("text".equals(type)) {
-                    fullResponse.append(block.path("text").asText());
-                } else if ("tool_use".equals(type)) {
+                if ("tool_use".equals(type)) {
                     hasToolUse = true;
                     String toolId = block.path("id").asText();
                     String toolName = block.path("name").asText();
@@ -190,16 +198,13 @@ public class AiAdvisorService {
                             .resultSummary(truncate(result, 200))
                             .build());
 
-                    Map<String, Object> assistantMsg = Map.of("role", "assistant", "content", content);
-                    Map<String, Object> toolResultMsg = Map.of("role", "user", "content",
-                            List.of(Map.of(
-                                    "type", "tool_result",
-                                    "tool_use_id", toolId,
-                                    "content", result)));
-                    messages.add(assistantMsg);
-                    messages.add(toolResultMsg);
-                    newMessages.add(assistantMsg);
-                    newMessages.add(toolResultMsg);
+                    Map<String, Object> toolResult = new LinkedHashMap<>();
+                    toolResult.put("type", "tool_result");
+                    toolResult.put("tool_use_id", toolId);
+                    toolResult.put("content", result);
+                    toolResults.add(toolResult);
+                } else if ("text".equals(type)) {
+                    fullResponse.append(block.path("text").asText());
                 }
             }
 
@@ -207,11 +212,19 @@ public class AiAdvisorService {
                 // 最终 AI 回复存入 Redis
                 String finalText = fullResponse.toString();
                 newMessages.add(Map.of("role", "assistant", "content", finalText));
-                conversationService.appendMessages(convId, newMessages);
+                conversationService.appendMessages(userId, convId, newMessages);
                 // 异步提炼并更新用户长期记忆（传入 convId 用于溯源）
                 extractAndSaveMemoryAsync(userId, newMessages, convId);
                 break;
             }
+
+            // assistant 消息使用完整的 content 数组（包含 text + tool_use）
+            Map<String, Object> assistantMsg = Map.of("role", "assistant", "content", content);
+            Map<String, Object> toolResultMsg = Map.of("role", "user", "content", toolResults);
+            messages.add(assistantMsg);
+            messages.add(toolResultMsg);
+            newMessages.add(assistantMsg);
+            newMessages.add(toolResultMsg);
         }
 
         return AiChatResponse.builder()
@@ -233,11 +246,15 @@ public class AiAdvisorService {
 
             boolean hasToolUse = false;
             List<Map<String, Object>> assistantContent = new ArrayList<>();
+            List<Map<String, Object>> toolResultList = new ArrayList<>();
 
             for (JsonNode block : contentBlocks) {
                 String type = block.path("type").asText();
                 if ("text".equals(type)) {
                     fullText.append(block.path("text").asText());
+                    assistantContent.add(Map.of(
+                            "type", "text",
+                            "text", block.path("text").asText()));
                 } else if ("tool_use".equals(type)) {
                     hasToolUse = true;
                     String toolId = block.path("id").asText();
@@ -259,13 +276,20 @@ public class AiAdvisorService {
                             "id", toolId,
                             "name", toolName,
                             "input", input));
+
+                    // 保存 tool_result 供后续构建消息
+                    Map<String, Object> toolResult = new LinkedHashMap<>();
+                    toolResult.put("type", "tool_result");
+                    toolResult.put("tool_use_id", toolId);
+                    toolResult.put("content", result);
+                    toolResultList.add(toolResult);
                 }
             }
 
             if (!hasToolUse) {
                 // 流式结束,存入 Redis
                 newMessages.add(Map.of("role", "assistant", "content", fullText.toString()));
-                conversationService.appendMessages(convId, newMessages);
+                conversationService.appendMessages(userId, convId, newMessages);
                 // 异步提炼用户记忆（传入 convId 用于溯源）
                 extractAndSaveMemoryAsync(userId, newMessages, convId);
                 break;
@@ -275,26 +299,9 @@ public class AiAdvisorService {
             messages.add(assistantMsg);
             newMessages.add(assistantMsg);
 
-            List<Map<String, Object>> toolResults = contentBlocks.stream()
-                    .filter(b -> "tool_use".equals(b.path("type").asText()))
-                    .map(b -> {
-                        String toolId = b.path("id").asText();
-                        String toolName = b.path("name").asText();
-                        JsonNode inputNode = b.path("input");
-                        Map<String, Object> input = objectMapper.convertValue(inputNode,
-                                new TypeReference<>() {});
-                        String result = executeTool(toolName, input, userId);
-                        Map<String, Object> toolResult = new LinkedHashMap<>();
-                        toolResult.put("type", "tool_result");
-                        toolResult.put("tool_use_id", toolId);
-                        toolResult.put("content", result);
-                        return toolResult;
-                    })
-                    .collect(Collectors.toList());
-
             Map<String, Object> toolResultMsg = new LinkedHashMap<>();
             toolResultMsg.put("role", "user");
-            toolResultMsg.put("content", toolResults);
+            toolResultMsg.put("content", toolResultList);
             messages.add(toolResultMsg);
             newMessages.add(toolResultMsg);
         }
@@ -466,7 +473,8 @@ public class AiAdvisorService {
         sb.append("## 核心目标\n");
         sb.append("1. **精准推荐**:分析学生情况,匹配最合适的老师并给出推荐理由\n");
         sb.append("2. **温情客服**:解答平台规则疑问,安抚家长的教育焦虑\n");
-        sb.append("3. **促成履约**:引导家长完成发布需求、确认试课、安排排期的闭环\n\n");
+        sb.append("3. **促成履约**:引导家长完成发布需求、确认试课、安排排期的闭环\n");
+        sb.append("4. **预约试课**:当家长对推荐老师感兴趣时,引导收集试课信息并完成预约\n\n");
 
         sb.append("## 语气要求\n");
         sb.append("- 专业、耐心、共情,像一位经验丰富的老教师\n");
@@ -478,6 +486,14 @@ public class AiAdvisorService {
         sb.append("- 只回答教育匹配和平台规则相关的问题\n");
         sb.append("- 遇到知识库中没有的极端问题,引导转接人工客服\n");
         sb.append("- 绝不自行编造规则\n\n");
+
+        sb.append("## 试课预约流程指引\n");
+        sb.append("- 当家长表达想试课或预约意向时,主动引导收集必要信息\n");
+        sb.append("- 需确认的信息:1)选择哪位老师 2)试课时间 3)线上还是线下 4)试课价格\n");
+        sb.append("- 试课价格建议:取老师正常时薪(hourly_rate_min)的50%-100%\n");
+        sb.append("- 线下试课需确认上课地址\n");
+        sb.append("- 试课时长默认60分钟,如有特殊需求可调整\n");
+        sb.append("- 预约后老师需要确认,提醒家长耐心等待\n\n");
 
         // 注入用户履历记忆
         String memory = userMemoryService.getMemoryForPrompt(userId);
@@ -574,7 +590,32 @@ public class AiAdvisorService {
                                         "query", Map.of(
                                                 "type", "string",
                                                 "description", "要查询的规则关键词,如:退款、试课、认证、收费")),
-                                "required", List.of("query"))));
+                                "required", List.of("query"))),
+                Map.of(
+                        "name", "book_trial_lesson",
+                        "description", "为家长预约试课。需要提供家教老师ID、试课时间、授课方式、试课价格等信息。试课价格通常为正常课时费的50%-100%。预约后需等待老师确认。",
+                        "input_schema", Map.of(
+                                "type", "object",
+                                "properties", Map.of(
+                                        "tutor_user_id", Map.of(
+                                                "type", "integer",
+                                                "description", "家教老师的用户ID(从搜索结果中的user_id字段获取)"),
+                                        "trial_date", Map.of(
+                                                "type", "string",
+                                                "description", "试课日期时间,ISO格式,如:2026-05-10T14:00表示5月10日下午2点"),
+                                        "trial_mode", Map.of(
+                                                "type", "integer",
+                                                "description", "授课方式:1=线下面授,2=线上教学"),
+                                        "trial_price", Map.of(
+                                                "type", "integer",
+                                                "description", "试课价格(单位:分),如5000表示50元。建议为老师时薪的50%-100%"),
+                                        "trial_duration", Map.of(
+                                                "type", "integer",
+                                                "description", "试课时长(单位:分钟),默认60分钟"),
+                                        "trial_address", Map.of(
+                                                "type", "string",
+                                                "description", "上课地址(仅线下授课时需要)")),
+                                "required", List.of("tutor_user_id", "trial_date", "trial_mode", "trial_price"))));
     }
 
     // ==================== Tool Execution ====================
@@ -585,6 +626,7 @@ public class AiAdvisorService {
                 case "get_student_record" -> handleGetStudentRecord(userId);
                 case "search_tutors" -> handleSearchTutors(input);
                 case "query_platform_rules" -> handleQueryPlatformRules(input);
+                case "book_trial_lesson" -> handleBookTrialLesson(input, userId);
                 default -> "{\"error\": \"未知工具: " + toolName + "\"}";
             };
         } catch (Exception e) {
@@ -694,7 +736,7 @@ public class AiAdvisorService {
 
             IPage<TutorProfile> page = tutorSearchService.searchTutors(
                     subjectId, null, null, maxRate, null, city, null,
-                    null, null, null, sortBy, 1, 5);
+                    null, null, null, null, sortBy, 1, 5);
 
             List<Map<String, Object>> tutorList = page.getRecords().stream().map(t -> {
                 Map<String, Object> info = new LinkedHashMap<>();
@@ -773,16 +815,111 @@ public class AiAdvisorService {
         return String.join("\n\n", matched);
     }
 
+    @SuppressWarnings("unchecked")
+    private String handleBookTrialLesson(Map<String, Object> input, Long userId) {
+        try {
+            // 1. 提取并校验参数
+            Object tutorIdObj = input.get("tutor_user_id");
+            if (tutorIdObj == null) {
+                return "{\"success\":false,\"error\":\"缺少家教老师ID\"}";
+            }
+            Long tutorUserId = tutorIdObj instanceof Number n ? n.longValue() : Long.valueOf(tutorIdObj.toString());
+
+            String trialDateStr = (String) input.get("trial_date");
+            if (trialDateStr == null || trialDateStr.isBlank()) {
+                return "{\"success\":false,\"error\":\"缺少试课时间\"}";
+            }
+            LocalDateTime trialDate;
+            try {
+                trialDate = LocalDateTime.parse(trialDateStr);
+            } catch (Exception e) {
+                return "{\"success\":false,\"error\":\"试课时间格式不正确,请使用ISO格式如:2026-05-10T14:00\"}";
+            }
+
+            Object trialModeObj = input.get("trial_mode");
+            if (trialModeObj == null) {
+                return "{\"success\":false,\"error\":\"缺少授课方式\"}";
+            }
+            Integer trialMode = trialModeObj instanceof Number n ? n.intValue() : Integer.valueOf(trialModeObj.toString());
+            if (trialMode != 1 && trialMode != 2) {
+                return "{\"success\":false,\"error\":\"授课方式无效,1=线下面授,2=线上教学\"}";
+            }
+
+            Object trialPriceObj = input.get("trial_price");
+            if (trialPriceObj == null) {
+                return "{\"success\":false,\"error\":\"缺少试课价格\"}";
+            }
+            Integer trialPrice = trialPriceObj instanceof Number n ? n.intValue() : Integer.valueOf(trialPriceObj.toString());
+            if (trialPrice <= 0) {
+                return "{\"success\":false,\"error\":\"试课价格必须大于0\"}";
+            }
+
+            Integer trialDuration = input.get("trial_duration") instanceof Number n
+                    ? n.intValue() : 60;
+
+            String trialAddress = (String) input.get("trial_address");
+
+            // 2. 校验当前用户是家长
+            User user = userMapper.selectById(userId);
+            if (user == null || !UserRole.hasRole(user.getRole(), UserRole.PARENT)) {
+                return "{\"success\":false,\"error\":\"只有家长可以预约试课\"}";
+            }
+
+            // 3. 校验家教存在且已认证
+            TutorProfile tutorProfile = tutorProfileMapper.selectOne(
+                    new LambdaQueryWrapper<TutorProfile>().eq(TutorProfile::getUserId, tutorUserId));
+            if (tutorProfile == null) {
+                return "{\"success\":false,\"error\":\"未找到该家教老师\"}";
+            }
+            if (tutorProfile.getCertificationStatus() == null || tutorProfile.getCertificationStatus() != 2) {
+                return "{\"success\":false,\"error\":\"该家教老师尚未通过认证,无法预约试课\"}";
+            }
+
+            // 4. 构建请求并调用服务
+            TrialLessonRequest request = new TrialLessonRequest();
+            request.setOrderId(null); // AI 直接预约,无关联订单
+            request.setTutorUserId(tutorUserId);
+            request.setTrialDate(trialDate);
+            request.setTrialDuration(trialDuration);
+            request.setTrialPrice(trialPrice);
+            request.setTrialAddress(trialAddress);
+            request.setTrialMode(trialMode);
+
+            TrialLesson trial = trialLessonService.createTrial(userId, request);
+
+            // 5. 构建成功结果
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("success", true);
+            result.put("trial_id", trial.getId());
+            result.put("tutor_user_id", trial.getTutorUserId());
+            result.put("trial_date", trial.getTrialDate().toString());
+            result.put("trial_duration", trial.getTrialDuration());
+            result.put("trial_price", trial.getTrialPrice());
+            result.put("trial_price_yuan", trial.getTrialPrice() / 100.0);
+            result.put("trial_mode", trial.getTrialMode());
+            result.put("trial_mode_desc", trial.getTrialMode() == 1 ? "线下面授" : "线上教学");
+            result.put("status", trial.getStatus());
+            result.put("status_desc", "待老师确认");
+            result.put("message", "试课预约已创建,已通知老师确认。老师确认后您将收到通知。");
+            return objectMapper.writeValueAsString(result);
+        } catch (BusinessException e) {
+            return "{\"success\":false,\"error\":\"" + e.getMessage() + "\"}";
+        } catch (Exception e) {
+            log.error("Book trial lesson failed for user {}", userId, e);
+            return "{\"success\":false,\"error\":\"预约试课失败: " + e.getMessage() + "\"}";
+        }
+    }
+
     // ==================== Helpers ====================
 
     /**
      * 优先从 Redis 加载历史,如果 Redis 没有则用前端传来的 history
      */
-    private List<Map<String, Object>> buildMessagesWithHistory(AiChatRequest request, String convId) {
+    private List<Map<String, Object>> buildMessagesWithHistory(Long userId, AiChatRequest request, String convId) {
         List<Map<String, Object>> messages = new ArrayList<>();
 
         // 优先从 Redis 加载
-        List<Map<String, Object>> redisHistory = conversationService.getHistory(convId);
+        List<Map<String, Object>> redisHistory = conversationService.getHistory(userId, convId);
         if (!redisHistory.isEmpty()) {
             messages.addAll(redisHistory);
         } else if (request.getHistory() != null) {
@@ -799,10 +936,15 @@ public class AiAdvisorService {
 
     /**
      * 生成或复用 conversationId
+     * 只接受系统生成的 32 位 hex 格式，拒绝任意字符串防止 Redis 键注入
      */
-    private String resolveConversationId(String requested) {
+    private String resolveConversationId(Long userId, String requested) {
         if (requested != null && !requested.isBlank()) {
-            conversationService.touch(requested);
+            if (!CONV_ID_PATTERN.matcher(requested).matches()) {
+                log.warn("Invalid conversationId format for user {}, generating new one", userId);
+                return UUID.randomUUID().toString().replace("-", "");
+            }
+            conversationService.touch(userId, requested);
             return requested;
         }
         return UUID.randomUUID().toString().replace("-", "");
@@ -937,6 +1079,7 @@ public class AiAdvisorService {
             case "get_student_record" -> "正在查询学生档案...";
             case "search_tutors" -> "正在搜索匹配的家教老师...";
             case "query_platform_rules" -> "正在查询平台规则...";
+            case "book_trial_lesson" -> "正在预约试课...";
             default -> "正在处理...";
         };
     }

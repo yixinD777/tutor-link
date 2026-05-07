@@ -1,48 +1,56 @@
 <template>
   <view class="page">
+    <!-- 搜索栏 -->
+    <TlSearchBar v-model="keyword" placeholder="搜索学校、专业、科目..." @search="onSearch" @clear="clearSearch" />
+
     <!-- 筛选栏 -->
-    <view class="filter-bar">
+    <scroll-view scroll-x class="filter-bar">
       <picker :range="subjectNames" @change="onSubjectChange">
-        <view class="filter-item">{{ selectedSubject || '科目' }}</view>
+        <view :class="['filter-pill', { 'filter-pill--active': selectedSubject && selectedSubject !== '全部' }]">
+          {{ selectedSubject || '科目' }} ▾
+        </view>
       </picker>
       <picker :range="sortOptions" @change="onSortChange">
-        <view class="filter-item">{{ currentSort || '排序' }}</view>
-      </picker>
-    </view>
-
-    <!-- 家教列表 -->
-    <scroll-view scroll-y class="tutor-scroll" @scrolltolower="loadMore">
-      <view v-if="tutors.length === 0 && !loading" class="empty">
-        <text>暂无符合条件的家教</text>
-      </view>
-      <view class="tutor-card" v-for="tutor in tutors" :key="tutor.id" @tap="goDetail(tutor.userId)">
-        <view class="card-header">
-          <text class="university">{{ tutor.university || '大学生家教' }}</text>
-          <view class="rating-badge">
-            <text class="rating-text">{{ tutor.avgRating || '新' }}</text>
-          </view>
+        <view :class="['filter-pill', { 'filter-pill--active': currentSortIndex !== 0 }]">
+          {{ currentSort }} ▾
         </view>
-        <text class="info-line">{{ tutor.major }} · {{ tutor.educationLevelDesc || '本科' }}</text>
-        <text class="info-line">{{ formatRate(tutor.hourlyRateMin, tutor.hourlyRateMax) }}</text>
-        <text class="info-line location">{{ tutor.city || '' }} {{ tutor.district || '' }}</text>
-      </view>
+      </picker>
     </scroll-view>
 
-    <view v-if="loading" class="loading">
-      <text>加载中...</text>
-    </view>
+    <!-- 双列家教网格 -->
+    <scroll-view scroll-y class="tutor-scroll" @scrolltolower="loadMore">
+      <TlEmpty v-if="tutors.length === 0 && !loading" icon="🔍" text="暂无符合条件的家教" />
+
+      <view class="tutor-grid">
+        <view class="grid-card" v-for="tutor in tutors" :key="tutor.id" @tap="goDetail(tutor.userId)">
+          <view class="grid-avatar-wrap">
+            <TlAvatar :src="tutor.avatarUrl" size="medium" :name="tutor.nickname" />
+          </view>
+          <text class="grid-name">{{ tutor.nickname || '家教老师' }}</text>
+          <text class="grid-rating">★ {{ tutor.avgRating ? Number(tutor.avgRating).toFixed(1) : '新' }}</text>
+          <text class="grid-school">{{ tutor.university || '' }}{{ tutor.major ? ' · ' + tutor.major : '' }}</text>
+          <text class="grid-price">{{ formatRate(tutor.hourlyRateMin, tutor.hourlyRateMax) }}</text>
+        </view>
+      </view>
+
+      <TlLoading v-if="loading" text="加载中..." />
+      <view v-else-if="!hasMore && tutors.length > 0" class="no-more"><text>没有更多了</text></view>
+    </scroll-view>
   </view>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import { searchTutors } from '../../api/tutor'
 import { get } from '../../api/request'
+import { formatRate } from '../../utils/formatters'
 
 const tutors = ref([])
 const loading = ref(false)
 const page = ref(1)
 const hasMore = ref(true)
+const keyword = ref('')
 const selectedSubject = ref('')
 const currentSort = ref('评分优先')
 const subjectNames = ref([])
@@ -51,9 +59,19 @@ const sortOptions = ['评分优先', '价格从低到高', '价格从高到低',
 const sortValues = ['rating', 'price_asc', 'price_desc', 'order_count']
 const currentSortIndex = ref(0)
 
-onMounted(() => {
-  loadSubjects()
-  loadTutors()
+let searchTimer = null
+
+onShow(() => {
+  if (subjectNames.value.length === 0) loadSubjects()
+  if (tutors.value.length === 0) loadTutors(true)
+})
+
+// 接收首页搜索框传来的关键词
+uni.$on('tutor-search', (data) => {
+  if (data?.keyword) {
+    keyword.value = data.keyword
+    loadTutors(true)
+  }
 })
 
 async function loadSubjects() {
@@ -71,18 +89,16 @@ async function loadTutors(reset = false) {
 
   loading.value = true
   try {
-    const params = {
-      page: page.value,
-      size: 20,
-      sortBy: sortValues[currentSortIndex.value]
-    }
+    const params = { page: page.value, size: 20, sortBy: sortValues[currentSortIndex.value] }
+    if (keyword.value.trim()) params.keyword = keyword.value.trim()
     if (selectedSubject.value && selectedSubject.value !== '全部') {
       const idx = subjectNames.value.indexOf(selectedSubject.value)
       if (idx > 0) params.subjectId = subjectIds.value[idx]
     }
     const res = await searchTutors(params)
-    tutors.value = reset ? (res.records || []) : [...tutors.value, ...(res.records || [])]
-    hasMore.value = tutors.value.length < res.total
+    const records = res.records || []
+    tutors.value = reset ? records : [...tutors.value, ...records]
+    hasMore.value = tutors.value.length < (res.total || 0)
     page.value++
   } catch (e) { console.error(e) }
   loading.value = false
@@ -90,21 +106,27 @@ async function loadTutors(reset = false) {
 
 function loadMore() { loadTutors() }
 
+function onSearch() { loadTutors(true) }
+
+function onSearchInput() {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => loadTutors(true), 500)
+}
+
+function clearSearch() {
+  keyword.value = ''
+  loadTutors(true)
+}
+
 function onSubjectChange(e) {
   selectedSubject.value = subjectNames.value[e.detail.value]
   loadTutors(true)
 }
 
 function onSortChange(e) {
-  currentSortIndex.value = e.detail.value
-  currentSort.value = sortOptions[e.detail.value]
+  currentSortIndex.value = Number(e.detail.value)
+  currentSort.value = sortOptions[currentSortIndex.value]
   loadTutors(true)
-}
-
-function formatRate(min, max) {
-  if (!min && !max) return '价格面议'
-  if (min && max) return `¥${min / 100}-${max / 100}/时`
-  return `¥${(min || max) / 100}/时`
 }
 
 function goDetail(userId) {
@@ -112,18 +134,101 @@ function goDetail(userId) {
 }
 </script>
 
-<style scoped>
-.page { height: 100vh; display: flex; flex-direction: column; }
-.filter-bar { display: flex; padding: 20rpx; background: #fff; gap: 20rpx; }
-.filter-item { padding: 12rpx 24rpx; background: #f5f5f5; border-radius: 24rpx; font-size: 26rpx; color: #666; }
-.tutor-scroll { flex: 1; padding: 20rpx; }
-.tutor-card { background: #fff; border-radius: 16rpx; padding: 24rpx; margin-bottom: 20rpx; }
-.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12rpx; }
-.university { font-size: 32rpx; font-weight: bold; }
-.rating-badge { background: #FFF3E0; padding: 4rpx 16rpx; border-radius: 12rpx; }
-.rating-text { color: #FF9500; font-size: 24rpx; font-weight: bold; }
-.info-line { font-size: 26rpx; color: #666; display: block; margin-top: 8rpx; }
-.location { color: #999; }
-.empty { text-align: center; padding: 100rpx; color: #999; }
-.loading { text-align: center; padding: 20rpx; color: #999; font-size: 24rpx; }
+<style lang="scss" scoped>
+.page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: $color-bg-page;
+}
+
+.filter-bar {
+  white-space: nowrap;
+  padding: $spacing-sm $spacing-page;
+  background: $color-bg-card;
+  border-bottom: 1rpx solid $color-border;
+}
+
+.filter-pill {
+  display: inline-block;
+  padding: $spacing-sm $spacing-lg;
+  background: $color-bg-input;
+  border-radius: $radius-pill;
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  margin-right: $spacing-sm;
+  font-weight: $font-weight-regular;
+  transition: all $duration-normal $ease-default;
+
+  &--active {
+    background: $color-primary;
+    color: #fff;
+  }
+}
+
+.tutor-scroll {
+  flex: 1;
+  padding: $spacing-sm $spacing-page 0;
+}
+
+.tutor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $spacing-md;
+}
+
+.grid-card {
+  background: $color-bg-card;
+  border-radius: $radius-xl;
+  padding: $spacing-lg $spacing-md;
+  text-align: center;
+  box-shadow: $shadow-card;
+}
+
+.grid-avatar-wrap {
+  width: 120rpx;
+  height: 120rpx;
+  margin: 0 auto $spacing-md;
+  border-radius: $radius-round;
+  background: $color-bg-input;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.grid-name {
+  font-size: $font-size-md;
+  font-weight: $font-weight-bold;
+  color: $color-text-primary;
+  display: block;
+  margin-bottom: 4rpx;
+}
+
+.grid-rating {
+  font-size: $font-size-sm;
+  color: $color-warning;
+  display: block;
+  margin-bottom: $spacing-xs;
+}
+
+.grid-school {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  display: block;
+  margin-bottom: $spacing-sm;
+}
+
+.grid-price {
+  font-size: $font-size-md;
+  font-weight: $font-weight-bold;
+  color: $color-primary;
+  display: block;
+}
+
+.no-more {
+  text-align: center;
+  padding: $spacing-md 0 $spacing-2xl;
+  color: $color-text-placeholder;
+  font-size: $font-size-sm;
+}
 </style>

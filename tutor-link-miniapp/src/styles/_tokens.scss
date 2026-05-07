@@ -1,0 +1,111 @@
+// ============================================
+// Tutor-Link Design Tokens (Backup)
+// ============================================
+
+// --- Color: Primary ---
+$color-primary: #2C5BF6;
+$color-primary-light: #EEF2FF;
+$color-primary-dark: #1A4FD4;
+
+// --- Color: Semantic ---
+$color-success: #22C55E;
+$color-success-light: #E8F8EE;
+$color-warning: #F59E0B;
+$color-warning-light: #FFF8E1;
+$color-danger: #EF4444;
+$color-danger-light: #FEF2F2;
+
+// --- Color: Functional ---
+$color-info: $color-primary;
+$color-info-light: $color-primary-light;
+$color-purple: #7B5CF5;
+$color-purple-light: #F0EEFF;
+$color-wechat: #07C160;
+
+// --- Color: Text ---
+$color-text-primary: #111827;
+$color-text-regular: #374151;
+$color-text-secondary: #6B7280;
+$color-text-placeholder: #9CA3AF;
+
+// --- Color: Background ---
+$color-bg-page: #F9FAFB;
+$color-bg-card: #FFFFFF;
+$color-bg-input: #F3F4F6;
+$color-bg-hover: #EEF2FF;
+
+// --- Color: Border ---
+$color-border: #F0F0F0;
+$color-border-input: #DDDDDD;
+
+// --- Color: Status ---
+$color-status-pending-bg: $color-warning-light;
+$color-status-pending-text: $color-warning;
+$color-status-active-bg: $color-success-light;
+$color-status-active-text: $color-success;
+$color-status-info-bg: $color-info-light;
+$color-status-info-text: $color-info;
+$color-status-neutral-bg: #F3F4F6;
+$color-status-neutral-text: $color-text-secondary;
+$color-status-error-bg: $color-danger-light;
+$color-status-error-text: $color-danger;
+
+// --- Typography: Font Size ---
+$font-size-display: 56rpx;
+$font-size-xl: 40rpx;
+$font-size-lg: 34rpx;
+$font-size-md: 30rpx;
+$font-size-base: 28rpx;
+$font-size-sm: 24rpx;
+$font-size-xs: 20rpx;
+
+// --- Typography: Font Weight ---
+$font-weight-bold: 700;
+$font-weight-medium: 500;
+$font-weight-regular: 400;
+$font-weight-light: 300;
+
+// --- Typography: Line Height ---
+$line-height-tight: 1.2;
+$line-height-normal: 1.5;
+$line-height-relaxed: 1.6;
+$line-height-loose: 1.8;
+
+// --- Spacing ---
+$spacing-xs: 8rpx;
+$spacing-sm: 12rpx;
+$spacing-md: 20rpx;
+$spacing-lg: 24rpx;
+$spacing-xl: 30rpx;
+$spacing-2xl: 40rpx;
+$spacing-3xl: 60rpx;
+$spacing-4xl: 80rpx;
+$spacing-5xl: 120rpx;
+$spacing-page: 32rpx;
+
+// --- Border Radius ---
+$radius-sm: 8rpx;
+$radius-md: 12rpx;
+$radius-lg: 16rpx;
+$radius-xl: 20rpx;
+$radius-2xl: 24rpx;
+$radius-pill: 32rpx;
+$radius-round: 50%;
+
+// --- Shadow ---
+$shadow-card: 0 2rpx 8rpx rgba(0, 0, 0, 0.04), 0 8rpx 24rpx rgba(0, 0, 0, 0.06);
+$shadow-float: 0 4rpx 16rpx rgba(0, 0, 0, 0.08), 0 16rpx 48rpx rgba(0, 0, 0, 0.04);
+$shadow-bar: 0 -1rpx 0 rgba(0, 0, 0, 0.06);
+$shadow-popup: 0 8rpx 32rpx rgba(0, 0, 0, 0.12);
+
+// --- Animation ---
+$duration-fast: 0.15s;
+$duration-normal: 0.2s;
+$duration-slow: 0.3s;
+$ease-default: ease;
+
+// --- Z-Index ---
+$z-index-normal: 1;
+$z-index-sticky: 10;
+$z-index-fixed: 100;
+$z-index-popup: 999;

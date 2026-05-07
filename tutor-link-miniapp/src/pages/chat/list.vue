@@ -1,13 +1,11 @@
 <template>
   <view class="page">
     <view class="conv-item" v-for="conv in conversations" :key="conv.id" @tap="goChat(conv)">
-      <view class="conv-avatar">
-        <text class="avatar-text">{{ otherUser(conv).nickname?.[0] || '?' }}</text>
-      </view>
+      <TlAvatar :src="''" :name="otherUser(conv).nickname || '?'" size="medium" />
       <view class="conv-info">
         <view class="conv-top">
           <text class="conv-name">{{ otherUser(conv).nickname || '用户' }}</text>
-          <text class="conv-time">{{ formatTime(conv.lastMessageTime) }}</text>
+          <text class="conv-time">{{ formatSmartTime(conv.lastMessageTime) }}</text>
         </view>
         <view class="conv-bottom">
           <text class="conv-last">{{ conv.lastMessageContent || '' }}</text>
@@ -18,10 +16,8 @@
       </view>
     </view>
 
-    <view v-if="!loading && conversations.length === 0" class="empty">
-      <text>暂无消息</text>
-    </view>
-    <view v-if="loading" class="loading"><text>加载中...</text></view>
+    <TlEmpty v-if="!loading && conversations.length === 0" icon="💬" text="暂无消息" />
+    <TlLoading v-if="loading" text="加载中..." />
   </view>
 </template>
 
@@ -30,6 +26,7 @@ import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { listConversations } from '../../api/chat'
 import { useUserStore } from '../../store/user'
+import { formatSmartTime } from '../../utils/formatters'
 
 const userStore = useUserStore()
 const conversations = ref([])
@@ -52,7 +49,6 @@ async function loadConversations() {
 }
 
 function otherUser(conv) {
-  // 简单展示: 根据当前用户ID判断对方
   const isUserA = conv.userAId === userStore.userId
   return {
     userId: isUserA ? conv.userBId : conv.userAId,
@@ -65,15 +61,6 @@ function unreadOf(conv) {
   return conv.userBUnread || 0
 }
 
-function formatTime(t) {
-  if (!t) return ''
-  const d = t.replace('T', ' ')
-  const now = new Date()
-  const date = new Date(d)
-  if (now.toDateString() === date.toDateString()) return d.substring(11, 16)
-  return d.substring(5, 10)
-}
-
 function goChat(conv) {
   const other = otherUser(conv)
   uni.navigateTo({
@@ -82,19 +69,73 @@ function goChat(conv) {
 }
 </script>
 
-<style scoped>
-.page { padding: 0; background: #f5f5f5; min-height: 100vh; }
-.conv-item { display: flex; align-items: center; padding: 24rpx 30rpx; background: #fff; border-bottom: 1rpx solid #f0f0f0; }
-.conv-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; background: #4A90D9; display: flex; align-items: center; justify-content: center; margin-right: 20rpx; flex-shrink: 0; }
-.avatar-text { color: #fff; font-size: 36rpx; font-weight: bold; }
-.conv-info { flex: 1; min-width: 0; }
-.conv-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8rpx; }
-.conv-name { font-size: 30rpx; color: #333; font-weight: bold; }
-.conv-time { font-size: 22rpx; color: #999; }
-.conv-bottom { display: flex; justify-content: space-between; align-items: center; }
-.conv-last { font-size: 26rpx; color: #999; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-.conv-badge { background: #F44336; border-radius: 24rpx; min-width: 36rpx; height: 36rpx; display: flex; align-items: center; justify-content: center; margin-left: 12rpx; }
-.badge-text { color: #fff; font-size: 22rpx; }
-.empty { text-align: center; padding: 120rpx; color: #999; font-size: 28rpx; }
-.loading { text-align: center; padding: 20rpx; color: #999; font-size: 24rpx; }
+<style lang="scss" scoped>
+.page {
+  padding: 0;
+  background: $color-bg-page;
+  min-height: 100vh;
+}
+
+.conv-item {
+  display: flex;
+  align-items: center;
+  padding: $spacing-lg $spacing-xl;
+  background: $color-bg-card;
+  border-bottom: 1rpx solid $color-border;
+}
+
+.conv-info {
+  flex: 1;
+  min-width: 0;
+  margin-left: $spacing-md;
+}
+
+.conv-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: $spacing-xs;
+}
+
+.conv-name {
+  font-size: $font-size-md;
+  color: $color-text-primary;
+  font-weight: $font-weight-bold;
+}
+
+.conv-time {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+}
+
+.conv-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.conv-last {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.conv-badge {
+  background: $color-danger;
+  border-radius: $radius-pill;
+  min-width: 36rpx;
+  height: 36rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: $spacing-sm;
+}
+
+.badge-text {
+  color: #fff;
+  font-size: $font-size-xs;
+}
 </style>

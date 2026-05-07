@@ -6,40 +6,60 @@
         class="msg-item" :class="{ 'msg-self': msg.senderId == userId }">
 
         <!-- 头像 -->
-        <image class="msg-avatar" :src="msg.senderId == userId ? userAvatar : otherAvatar" mode="aspectFill" />
+        <TlAvatar
+          :src="msg.senderId == userId ? userAvatar : otherAvatar"
+          size="medium"
+        />
 
         <!-- 气泡 + 时间 -->
         <view class="msg-body">
           <!-- 文本消息 (msgType=1) -->
-          <view v-if="msg.msgType === 1" class="msg-bubble">
-            <text class="msg-text">{{ msg.content }}</text>
-          </view>
+          <TlChatBubble v-if="msg.msgType === 1" :role="msg.senderId == userId ? 'self' : 'other'">
+            <text user-select>{{ msg.content }}</text>
+          </TlChatBubble>
 
           <!-- 订单卡片 (msgType=3) -->
-          <view v-else-if="msg.msgType === 3" class="msg-bubble order-card" @tap="goOrderDetail(msg.content)">
-            <text class="card-title">📋 家教需求</text>
-            <text class="card-info">{{ parseOrderCard(msg.content) }}</text>
-            <text class="card-link">点击查看详情 ›</text>
-          </view>
+          <TlChatBubble v-else-if="msg.msgType === 3" :role="msg.senderId == userId ? 'self' : 'other'">
+            <view class="card order-card" @tap="goOrderDetail(msg.content)">
+              <view class="card-header">
+                <text class="card-emoji">📋</text>
+                <text class="card-title">家教需求</text>
+                <TlStatusBadge v-if="parseOrderData(msg.content)?.status" :status="parseOrderData(msg.content).status" type="order" />
+              </view>
+              <text class="card-info">{{ parseOrderCard(msg.content) }}</text>
+              <text class="card-link">点击查看详情 ›</text>
+            </view>
+          </TlChatBubble>
 
           <!-- 试课卡片 (msgType=4) -->
-          <view v-else-if="msg.msgType === 4" class="msg-bubble trial-card" @tap="goTrialDetail(msg.content)">
-            <text class="card-title">🎓 试课邀请</text>
-            <text class="card-info">{{ parseTrialCard(msg.content) }}</text>
-            <text class="card-link">点击查看详情 ›</text>
-          </view>
+          <TlChatBubble v-else-if="msg.msgType === 4" :role="msg.senderId == userId ? 'self' : 'other'">
+            <view class="card trial-card" @tap="goTrialDetail(msg.content)">
+              <view class="card-header">
+                <text class="card-emoji">🎓</text>
+                <text class="card-title trial-title">试课邀请</text>
+                <TlTag v-if="parseTrialData(msg.content)?.trialMode" :text="modeText(parseTrialData(msg.content).trialMode)" type="mode" />
+              </view>
+              <text class="card-info">{{ parseTrialCard(msg.content) }}</text>
+              <text class="card-link">点击查看详情 ›</text>
+            </view>
+          </TlChatBubble>
 
           <!-- 排期卡片 (msgType=5) -->
-          <view v-else-if="msg.msgType === 5" class="msg-bubble schedule-card" @tap="goScheduleDetail(msg.content)">
-            <text class="card-title">📅 课程排期</text>
-            <text class="card-info">{{ parseScheduleCard(msg.content) }}</text>
-            <text class="card-link">点击查看详情 ›</text>
-          </view>
+          <TlChatBubble v-else-if="msg.msgType === 5" :role="msg.senderId == userId ? 'self' : 'other'">
+            <view class="card schedule-card" @tap="goScheduleDetail(msg.content)">
+              <view class="card-header">
+                <text class="card-emoji">📅</text>
+                <text class="card-title schedule-title">课程排期</text>
+              </view>
+              <text class="card-info">{{ parseScheduleCard(msg.content) }}</text>
+              <text class="card-link">点击查看详情 ›</text>
+            </view>
+          </TlChatBubble>
 
           <!-- 其他消息 -->
-          <view v-else class="msg-bubble">
-            <text class="msg-text">{{ msg.content }}</text>
-          </view>
+          <TlChatBubble v-else :role="msg.senderId == userId ? 'self' : 'other'">
+            <text user-select>{{ msg.content }}</text>
+          </TlChatBubble>
 
           <text class="msg-time">{{ formatMsgTime(msg.createTime) }}</text>
         </view>
@@ -47,13 +67,19 @@
     </scroll-view>
 
     <!-- 输入栏 -->
-    <view class="input-bar">
-      <input class="msg-input" v-model="inputText" placeholder="输入消息..." confirm-type="send" @confirm="sendTextMsg" />
-      <button class="send-btn" @tap="sendTextMsg" :disabled="!inputText.trim()">发送</button>
-      <button v-if="isParent && orderId" class="trial-btn" @tap="goCreateTrial">试课</button>
-      <button v-if="isParent && orderId" class="schedule-btn" @tap="goCreateSchedule">排期</button>
-      <button v-if="isParent && !orderId" class="order-btn" @tap="goCreateOrder">发需求</button>
-    </view>
+    <TlChatInputBar
+      v-model="inputText"
+      placeholder="输入消息..."
+      @send="sendTextMsg"
+    >
+      <template #actions>
+        <TlButton v-if="isParent && !orderId" type="warning" size="small" @tap="goCreateOrder">发需求</TlButton>
+        <TlButton v-if="isParent && orderStatus === 11" type="danger" size="small" @tap="handleConfirmDelegation">确认委托</TlButton>
+        <TlButton v-if="isParent && orderStatus >= 2 && orderId" type="warning" size="small" @tap="goCreateTrial">试课</TlButton>
+        <TlButton v-if="isParent && orderStatus >= 2 && orderId" type="success" size="small" @tap="goCreateSchedule">排期</TlButton>
+        <TlButton v-if="isTutor && orderStatus === 1 && orderId" type="primary" size="small" @tap="handleExpressInterest">感兴趣</TlButton>
+      </template>
+    </TlChatInputBar>
   </view>
 </template>
 
@@ -61,26 +87,42 @@
 import { ref, nextTick } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { listMessages, markAsRead, sendMessage as sendChatMsg } from '../../api/chat'
+import { expressInterest, confirmDelegation } from '../../api/order'
+import { get } from '../../api/request'
 import { useUserStore } from '../../store/user'
+import { formatMsgTime, modeText, formatPrice } from '../../utils/formatters'
 
 const userStore = useUserStore()
 const userId = userStore.userId
 const isParent = userStore.isParent()
-const userAvatar = userStore.avatarUrl || '/static/default-avatar.png'
-const otherAvatar = ref('/static/default-avatar.png')
+const isTutor = userStore.isTutor()
+const userAvatar = userStore.avatarUrl || '/static/default-avatar.svg'
+const otherAvatar = ref('/static/default-avatar.svg')
 const conversationId = ref(null)
 const otherUserId = ref(null)
 const orderId = ref(null)
+const orderStatus = ref(0)
 const messages = ref([])
 const inputText = ref('')
 const scrollTop = ref(0)
 
 onLoad((options) => {
-  otherUserId.value = Number(options.otherUserId)
-  if (options.conversationId) conversationId.value = Number(options.conversationId)
-  if (options.orderId) orderId.value = Number(options.orderId)
+  otherUserId.value = options.otherUserId
+  if (options.conversationId) conversationId.value = options.conversationId
+  if (options.orderId) orderId.value = options.orderId
+  if (options.orderStatus) orderStatus.value = parseInt(options.orderStatus)
   if (conversationId.value) loadMessages()
+  if (orderId.value) loadOrderStatus()
+  loadOtherUserInfo()
 })
+
+async function loadOtherUserInfo() {
+  if (!otherUserId.value) return
+  try {
+    const data = await get(`/users/${otherUserId.value}/basic`)
+    if (data?.avatarUrl) otherAvatar.value = data.avatarUrl
+  } catch (e) { /* 获取失败时保持默认头像 */ }
+}
 
 async function loadMessages() {
   if (!conversationId.value) return
@@ -118,6 +160,52 @@ async function doSend(msgType, content) {
   }
 }
 
+async function loadOrderStatus() {
+  if (!orderId.value) return
+  try {
+    const data = await get(`/orders/${orderId.value}`)
+    if (data) orderStatus.value = data.status
+  } catch (e) { /* ignore */ }
+}
+
+async function handleExpressInterest() {
+  if (!orderId.value) return
+  uni.showModal({
+    title: '表达意向',
+    content: '确定对这个家教需求感兴趣吗？确认后家长将看到您的意向。',
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          await expressInterest(orderId.value)
+          orderStatus.value = 11
+          uni.showToast({ title: '已表达意向', icon: 'success' })
+        } catch (e) {
+          uni.showToast({ title: e.message || '操作失败', icon: 'none' })
+        }
+      }
+    }
+  })
+}
+
+async function handleConfirmDelegation() {
+  if (!orderId.value) return
+  uni.showModal({
+    title: '确认委托',
+    content: '确定委托这位家教吗？确认后对方将正式成为您的授课老师。',
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          await confirmDelegation(orderId.value)
+          orderStatus.value = 2
+          uni.showToast({ title: '委托成功', icon: 'success' })
+        } catch (e) {
+          uni.showToast({ title: e.message || '操作失败', icon: 'none' })
+        }
+      }
+    }
+  })
+}
+
 function goCreateOrder() {
   uni.navigateTo({ url: `/pages/order/create?tutorUserId=${otherUserId.value}` })
 }
@@ -142,15 +230,26 @@ function goScheduleDetail(content) {
   try { const o = JSON.parse(content); if (o.scheduleId) uni.navigateTo({ url: `/pages/schedule/detail?scheduleId=${o.scheduleId}` }) } catch (e) {}
 }
 
+function parseOrderData(content) {
+  try { return JSON.parse(content) } catch (e) { return null }
+}
+
+function parseTrialData(content) {
+  try { return JSON.parse(content) } catch (e) { return null }
+}
+
 function parseOrderCard(content) {
-  try { const o = JSON.parse(content); return `${o.title || ''}\n${o.grade || ''} · ${o.hourlyRate ? (o.hourlyRate / 100) + '元/时' : ''}` } catch (e) { return content }
+  try {
+    const o = JSON.parse(content)
+    return `${o.title || ''}\n${o.grade || ''} · ${o.hourlyRate ? formatPrice(o.hourlyRate) + '/时' : ''}`
+  } catch (e) { return content }
 }
 
 function parseTrialCard(content) {
   try {
     const o = JSON.parse(content)
-    const date = o.trialDate ? o.trialDate.replace('T', ' ').substring(0, 16) : ''
-    return `时间: ${date}\n价格: ${o.trialPrice ? (o.trialPrice / 100) + '元' : ''}\n方式: ${o.trialMode === 1 ? '线下' : '线上'}`
+    const date = o.trialDate ? formatTime(o.trialDate) : ''
+    return `时间: ${date}\n价格: ${o.trialPrice ? formatPrice(o.trialPrice) : ''}\n方式: ${modeText(o.trialMode)}`
   } catch (e) { return content }
 }
 
@@ -158,52 +257,122 @@ function parseScheduleCard(content) {
   try {
     const o = JSON.parse(content)
     const days = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']
-    return `${days[o.dayOfWeek] || ''} ${o.startTime || ''}-${o.endTime || ''}\n课时费: ${o.hourlyRate ? (o.hourlyRate / 100) + '元/时' : ''}`
+    return `${days[o.dayOfWeek] || ''} ${o.startTime || ''}-${o.endTime || ''}\n课时费: ${o.hourlyRate ? formatPrice(o.hourlyRate) + '/时' : ''}`
   } catch (e) { return content }
 }
 
 function scrollToBottom() { nextTick(() => { scrollTop.value = messages.value.length * 200 }) }
-function formatMsgTime(t) { return t ? t.replace('T', ' ').substring(11, 16) : '' }
 </script>
 
-<style scoped>
-.page { display: flex; flex-direction: column; height: 100vh; background: #f5f5f5; }
-.msg-list { flex: 1; padding: 20rpx; }
+<style lang="scss" scoped>
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: $color-bg-page;
+}
+
+.msg-list {
+  flex: 1;
+  padding: $spacing-page;
+}
 
 /* 消息行：横向，对方消息头像在左，自己消息头像在右 */
-.msg-item { display: flex; flex-direction: row; margin-bottom: 24rpx; align-items: flex-start; }
-.msg-self { flex-direction: row-reverse; }
+.msg-item {
+  display: flex;
+  flex-direction: row;
+  margin-bottom: $spacing-lg;
+  align-items: flex-start;
+}
 
-.msg-avatar { width: 72rpx; height: 72rpx; border-radius: 50%; flex-shrink: 0; }
+.msg-self {
+  flex-direction: row-reverse;
+}
 
 /* 气泡+时间竖向排列 */
-.msg-body { display: flex; flex-direction: column; max-width: 70%; margin: 0 16rpx; }
-.msg-self .msg-body { align-items: flex-end; }
+.msg-body {
+  display: flex;
+  flex-direction: column;
+  max-width: 70%;
+  margin: 0 $spacing-sm;
+}
 
-.msg-bubble { padding: 20rpx 24rpx; border-radius: 16rpx; background: #fff; }
-.msg-self .msg-bubble { background: #4A90D9; border-top-right-radius: 4rpx; }
-.msg-item:not(.msg-self) .msg-bubble { border-top-left-radius: 4rpx; }
-.msg-text { font-size: 28rpx; line-height: 1.5; color: #333; word-break: break-all; }
-.msg-self .msg-text { color: #fff; }
-.msg-time { font-size: 20rpx; color: #999; margin-top: 4rpx; }
+.msg-self .msg-body {
+  align-items: flex-end;
+}
 
-.order-card { background: #fff; border: 2rpx solid #4A90D9; }
-.trial-card { background: #fff; border: 2rpx solid #FF9500; }
-.schedule-card { background: #fff; border: 2rpx solid #07C160; }
-.msg-self .order-card { background: #EBF3FB; }
-.msg-self .trial-card { background: #FFF8F0; }
-.msg-self .schedule-card { background: #F0FFF4; }
-.card-title { font-size: 28rpx; font-weight: bold; color: #4A90D9; display: block; margin-bottom: 8rpx; }
-.trial-card .card-title { color: #FF9500; }
-.schedule-card .card-title { color: #07C160; }
-.card-info { font-size: 26rpx; color: #333; display: block; white-space: pre-line; }
-.card-link { font-size: 24rpx; color: #4A90D9; display: block; margin-top: 8rpx; }
+.msg-time {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+  margin-top: $spacing-xs;
+}
 
-.input-bar { display: flex; align-items: center; padding: 16rpx 20rpx; background: #fff; border-top: 1rpx solid #f0f0f0; flex-wrap: wrap; gap: 8rpx; }
-.msg-input { flex: 1; background: #f5f5f5; border-radius: 32rpx; padding: 16rpx 24rpx; font-size: 28rpx; min-width: 200rpx; }
-.send-btn { background: #4A90D9; color: #fff; border-radius: 32rpx; font-size: 28rpx; padding: 16rpx 28rpx; line-height: 1; }
-.send-btn[disabled] { background: #ccc; }
-.order-btn { background: #FF9500; color: #fff; border-radius: 32rpx; font-size: 28rpx; padding: 16rpx 28rpx; line-height: 1; }
-.trial-btn { background: #FF9500; color: #fff; border-radius: 32rpx; font-size: 26rpx; padding: 14rpx 24rpx; line-height: 1; }
-.schedule-btn { background: #07C160; color: #fff; border-radius: 32rpx; font-size: 26rpx; padding: 14rpx 24rpx; line-height: 1; }
+/* ---- 富消息卡片 ---- */
+.card {
+  border-radius: $radius-md;
+  padding: $spacing-md;
+  overflow: hidden;
+}
+
+.order-card {
+  border: 2rpx solid $color-primary;
+
+  .card-title {
+    color: $color-primary;
+  }
+}
+
+.trial-card {
+  border: 2rpx solid $color-warning;
+
+  .card-title {
+    color: $color-warning;
+  }
+
+  .trial-title {
+    color: $color-warning;
+  }
+}
+
+.schedule-card {
+  border: 2rpx solid $color-success;
+
+  .card-title {
+    color: $color-success;
+  }
+
+  .schedule-title {
+    color: $color-success;
+  }
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: $spacing-sm;
+  gap: $spacing-xs;
+}
+
+.card-emoji {
+  font-size: $font-size-base;
+}
+
+.card-title {
+  font-size: $font-size-base;
+  font-weight: $font-weight-bold;
+  color: $color-primary;
+  margin-right: $spacing-xs;
+}
+
+.card-info {
+  font-size: $font-size-sm;
+  color: $color-text-regular;
+  white-space: pre-line;
+}
+
+.card-link {
+  font-size: $font-size-sm;
+  color: $color-primary;
+  margin-top: $spacing-xs;
+}
 </style>

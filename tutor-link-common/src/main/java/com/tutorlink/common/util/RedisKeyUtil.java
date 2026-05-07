@@ -38,8 +38,8 @@ public class RedisKeyUtil {
     }
 
     // ====== AI 会话 ======
-    public static String aiConversation(String conversationId) {
-        return PREFIX + "ai:conversation:" + conversationId;
+    public static String aiConversation(Long userId, String conversationId) {
+        return PREFIX + "ai:conversation:" + userId + ":" + conversationId;
     }
 
     // ====== AI 用户记忆 ======

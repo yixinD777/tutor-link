@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -56,6 +57,9 @@ public class CourseScheduleService {
 
         List<CourseSchedule> schedules = new ArrayList<>();
         for (CourseScheduleRequest.ScheduleItem item : request.getSchedules()) {
+            // 检查时间冲突：同一天 + 时间段重叠 + 日期范围重叠
+            checkTimeConflict(order.getTutorUserId(), item, null);
+
             CourseSchedule schedule = new CourseSchedule();
             schedule.setId(SnowflakeIdUtil.nextId());
             schedule.setOrderId(order.getId());
@@ -152,6 +156,9 @@ public class CourseScheduleService {
         if (!schedule.getParentUserId().equals(userId) && !schedule.getTutorUserId().equals(userId)) {
             throw new BusinessException(ResultCode.FORBIDDEN);
         }
+
+        // 确认前检查时间冲突（确认后变为ACTIVE，需要确保不与已有排期冲突）
+        checkTimeConflict(schedule.getTutorUserId(), null, schedule);
 
         schedule.setStatus(ScheduleStatus.ACTIVE.getCode());
         scheduleMapper.updateById(schedule);
@@ -282,6 +289,89 @@ public class CourseScheduleService {
             date = date.plusDays(1);
         }
         return count;
+    }
+
+    /**
+     * 检查时间冲突
+     * 冲突条件：同一家教 + 同一天(dayOfWeek) + 时间段重叠 + 日期范围重叠
+     *
+     * @param tutorUserId 家教用户ID
+     * @param item        新排期项（创建时传入）
+     * @param schedule    待确认的排期（确认时传入）
+     */
+    private void checkTimeConflict(Long tutorUserId, CourseScheduleRequest.ScheduleItem item, CourseSchedule schedule) {
+        int dayOfWeek;
+        LocalTime startTime;
+        LocalTime endTime;
+        LocalDate effectiveFrom;
+        LocalDate effectiveUntil;
+
+        if (item != null) {
+            dayOfWeek = item.getDayOfWeek();
+            startTime = item.getStartTime();
+            endTime = item.getEndTime();
+            effectiveFrom = item.getEffectiveFrom();
+            effectiveUntil = item.getEffectiveUntil();
+        } else if (schedule != null) {
+            dayOfWeek = schedule.getDayOfWeek();
+            startTime = schedule.getStartTime();
+            endTime = schedule.getEndTime();
+            effectiveFrom = schedule.getEffectiveFrom();
+            effectiveUntil = schedule.getEffectiveUntil();
+        } else {
+            return;
+        }
+
+        // 查询该家教所有生效中和暂停的排期（暂停的排期可能恢复，也需检测）
+        List<CourseSchedule> existingSchedules = scheduleMapper.selectList(
+                new LambdaQueryWrapper<CourseSchedule>()
+                        .eq(CourseSchedule::getTutorUserId, tutorUserId)
+                        .in(CourseSchedule::getStatus, Arrays.asList(
+                                ScheduleStatus.ACTIVE.getCode(),
+                                ScheduleStatus.PAUSED.getCode())));
+
+        // 确认时排除自身
+        if (schedule != null) {
+            existingSchedules = existingSchedules.stream()
+                    .filter(s -> !s.getId().equals(schedule.getId()))
+                    .collect(Collectors.toList());
+        }
+
+        for (CourseSchedule existing : existingSchedules) {
+            // 同一天才可能冲突
+            if (!existing.getDayOfWeek().equals(dayOfWeek)) {
+                continue;
+            }
+
+            // 时间段重叠：new.startTime < existing.endTime AND new.endTime > existing.startTime
+            if (startTime.isBefore(existing.getEndTime()) && endTime.isAfter(existing.getStartTime())) {
+                // 日期范围重叠
+                boolean dateOverlap = datesOverlap(effectiveFrom, effectiveUntil,
+                        existing.getEffectiveFrom(), existing.getEffectiveUntil());
+                if (dateOverlap) {
+                    String[] days = {"", "周一", "周二", "周三", "周四", "周五", "周六", "周日"};
+                    String dayName = dayOfWeek >= 1 && dayOfWeek <= 7 ? days[dayOfWeek] : "周" + dayOfWeek;
+                    throw new BusinessException(ResultCode.SCHEDULE_TIME_CONFLICT,
+                            "时间冲突：" + dayName + " " + startTime + "-" + endTime
+                                    + " 与已有排期 " + existing.getStartTime() + "-" + existing.getEndTime() + " 重叠");
+                }
+            }
+        }
+    }
+
+    /**
+     * 判断两个日期范围是否重叠
+     * 规则：null 表示无上限
+     * 重叠条件：range1.from <= range2.until AND (range1.until IS NULL OR range1.until >= range2.from)
+     */
+    private boolean datesOverlap(LocalDate from1, LocalDate until1, LocalDate from2, LocalDate until2) {
+        // 任一范围起始为 null 视为不限制（总是重叠）
+        LocalDate start1 = from1 != null ? from1 : LocalDate.MIN;
+        LocalDate start2 = from2 != null ? from2 : LocalDate.MIN;
+        LocalDate end1 = until1 != null ? until1 : LocalDate.MAX;
+        LocalDate end2 = until2 != null ? until2 : LocalDate.MAX;
+
+        return !start1.isAfter(end2) && !start2.isAfter(end1);
     }
 
     /**

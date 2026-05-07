@@ -9,7 +9,9 @@ export function getAiSuggestions() {
 }
 
 /**
- * 流式 AI 聊天（SSE POST），仅 H5 可用
+ * 流式 AI 聊天（SSE POST）
+ * - H5 环境：使用 fetch + ReadableStream 实现逐字输出
+ * - 小程序环境：回退到非流式接口（uni.request 不支持 ReadableStream）
  * @param {string} message
  * @param {string|null} conversationId
  * @param {Function} onText - 收到文字片段回调 (text: string)
@@ -18,6 +20,42 @@ export function getAiSuggestions() {
  * @returns {Function} abort 函数
  */
 export function chatWithAiStream(message, conversationId, onText, onDone, onError) {
+  // 小程序环境回退到非流式接口
+  // #ifdef MP-WEIXIN
+  return chatWithAiFallback(message, conversationId, onText, onDone, onError)
+  // #endif
+
+  // H5 环境使用 fetch SSE
+  // #ifndef MP-WEIXIN
+  return chatWithAiSSE(message, conversationId, onText, onDone, onError)
+  // #endif
+}
+
+/**
+ * 非流式回退（小程序用）
+ */
+function chatWithAiFallback(message, conversationId, onText, onDone, onError) {
+  let aborted = false
+  post('/ai/chat', { message, conversationId })
+    .then(data => {
+      if (aborted) return
+      if (data?.content) {
+        onText && onText(data.content)
+      }
+      onDone && onDone(data?.conversationId || conversationId)
+    })
+    .catch(err => {
+      if (!aborted) {
+        onError && onError(err)
+      }
+    })
+  return () => { aborted = true }
+}
+
+/**
+ * SSE 流式请求（H5 用）
+ */
+function chatWithAiSSE(message, conversationId, onText, onDone, onError) {
   const token = getToken()
   const url = '/api/v1/ai/chat/stream'
 

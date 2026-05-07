@@ -1,25 +1,26 @@
 <template>
   <view class="page">
     <view class="login-container">
-      <text class="title">家教直连</text>
-      <text class="subtitle">打破中介信息费，直连大学生家教</text>
+      <!-- Brand — blue title on white -->
+      <text class="brand-title">家教直连</text>
+      <text class="brand-sub">打破中介信息费，直连大学生家教</text>
 
-      <!-- 登录/注册切换 -->
+      <!-- Login / Register tabs -->
       <view class="tab-bar">
-        <view class="tab" :class="{ active: mode === 'login' }" @tap="mode = 'login'">登录</view>
-        <view class="tab" :class="{ active: mode === 'register' }" @tap="mode = 'register'">注册</view>
+        <view :class="['tab', { active: mode === 'login' }]" @tap="mode = 'login'">登录</view>
+        <view :class="['tab', { active: mode === 'register' }]" @tap="mode = 'register'">注册</view>
       </view>
 
-      <!-- 账号密码表单 -->
+      <!-- Form -->
       <view class="form">
-        <!-- 角色选择（仅注册时显示） -->
+        <!-- Role selector (register only) -->
         <view class="role-selector" v-if="mode === 'register'">
-          <view class="role-option" :class="{ active: role === 1 }" @tap="role = 1">
+          <view :class="['role-option', { active: role === 1 }]" @tap="role = 1">
             <text class="role-icon">👨‍👩‍👧</text>
             <text class="role-label">我是家长</text>
             <text class="role-desc">发布需求，找家教</text>
           </view>
-          <view class="role-option" :class="{ active: role === 2 }" @tap="role = 2">
+          <view :class="['role-option', { active: role === 2 }]" @tap="role = 2">
             <text class="role-icon">🎓</text>
             <text class="role-label">我是学生</text>
             <text class="role-desc">接单授课，赚收入</text>
@@ -35,18 +36,16 @@
         <view class="form-input" v-if="mode === 'register'" @tap="focusInput('nickname')">
           <input ref="nicknameInput" v-model="nickname" placeholder="昵称（选填，默认为账号）" maxlength="20" />
         </view>
-        <button class="submit-btn" @tap="handleSubmit">
-          {{ mode === 'login' ? '登录' : '注册' }}
-        </button>
+        <TlButton type="primary" @tap="handleSubmit">{{ mode === 'login' ? '登录' : '注册' }}</TlButton>
       </view>
 
-      <!-- 微信登录 -->
+      <!-- WeChat login -->
       <view class="divider">
-        <view class="line"></view>
+        <view class="line" />
         <text class="divider-text">其他登录方式</text>
-        <view class="line"></view>
+        <view class="line" />
       </view>
-      <button class="wx-login-btn" @tap="wxLogin">微信一键登录</button>
+      <TlButton type="wechat" @tap="wxLogin">微信一键登录</TlButton>
     </view>
   </view>
 </template>
@@ -61,7 +60,7 @@ const mode = ref('login')
 const account = ref('')
 const password = ref('')
 const nickname = ref('')
-const role = ref(1) // 1=家长, 2=学生
+const role = ref(1)
 
 const accountInput = ref(null)
 const passwordInput = ref(null)
@@ -71,7 +70,6 @@ function focusInput(name) {
   const refs = { account: accountInput, password: passwordInput, nickname: nicknameInput }
   const el = refs[name].value
   if (el && el.$el) {
-    // uni-app 组件：找到内部真实 input
     const realInput = el.$el.querySelector('input')
     if (realInput) realInput.focus()
   } else if (el) {
@@ -125,58 +123,141 @@ async function wxLogin() {
 }
 </script>
 
-<style scoped>
-.page { padding: 120rpx 40rpx 40rpx; background: #f5f5f5; min-height: 100vh; }
-.login-container { width: 100%; text-align: center; }
-.title { font-size: 56rpx; font-weight: bold; color: #4A90D9; display: block; margin-bottom: 16rpx; }
-.subtitle { font-size: 28rpx; color: #999; display: block; margin-bottom: 60rpx; }
+<style lang="scss" scoped>
+.page {
+  background: $color-bg-page;
+  min-height: 100vh;
+  padding: 0 $spacing-page;
+}
 
-.tab-bar { display: flex; justify-content: center; margin-bottom: 40rpx; gap: 60rpx; }
-.tab { font-size: 32rpx; color: #999; padding-bottom: 12rpx; border-bottom: 4rpx solid transparent; }
-.tab.active { color: #4A90D9; border-bottom-color: #4A90D9; font-weight: bold; }
+.login-container {
+  width: 100%;
+  text-align: center;
+  padding-top: 160rpx;
+}
 
-.form { text-align: left; }
+.brand-title {
+  font-size: $font-size-display;
+  font-weight: $font-weight-bold;
+  color: $color-primary;
+  display: block;
+  margin-bottom: $spacing-sm;
+  letter-spacing: 2rpx;
+}
+
+.brand-sub {
+  font-size: $font-size-base;
+  font-weight: $font-weight-light;
+  color: $color-text-secondary;
+  display: block;
+  margin-bottom: $spacing-4xl;
+}
+
+.tab-bar {
+  display: flex;
+  justify-content: center;
+  margin-bottom: $spacing-2xl;
+  gap: 60rpx;
+}
+
+.tab {
+  font-size: $font-size-md;
+  color: $color-text-placeholder;
+  padding-bottom: $spacing-sm;
+  border-bottom: 4rpx solid transparent;
+  transition: all $duration-normal $ease-default;
+
+  &.active {
+    color: $color-primary;
+    border-bottom-color: $color-primary;
+    font-weight: $font-weight-bold;
+  }
+}
+
+.form {
+  text-align: left;
+}
+
 .form-input {
   width: 100%;
-  margin-bottom: 24rpx;
-  background: #fff;
-  border: 2rpx solid #ddd;
-  border-radius: 12rpx;
-  padding: 24rpx;
-  font-size: 28rpx;
+  margin-bottom: $spacing-lg;
+  background: $color-bg-card;
+  border: 2rpx solid $color-border;
+  border-radius: $radius-xl;
+  padding: $spacing-lg;
+  font-size: $font-size-base;
   box-sizing: border-box;
-  color: #333;
-  cursor: text;
-}
-.form-input:focus-within {
-  border-color: #4A90D9;
-}
-.form-input input,
-.form-input :deep(uni-input) {
-  width: 100%;
-  border: none;
-  outline: none;
-  background: transparent;
-  font-size: 28rpx;
-  color: #333;
-}
-.submit-btn { background: #4A90D9; color: #fff; border-radius: 48rpx; font-size: 32rpx; padding: 24rpx; margin-top: 20rpx; }
+  color: $color-text-primary;
+  transition: all $duration-normal $ease-default;
 
-.role-selector { display: flex; gap: 20rpx; margin-bottom: 30rpx; }
+  &:focus-within {
+    border-color: $color-primary;
+    background: $color-bg-card;
+  }
+
+  input {
+    color: $color-text-primary;
+  }
+}
+
+.role-selector {
+  display: flex;
+  gap: $spacing-md;
+  margin-bottom: $spacing-xl;
+}
+
 .role-option {
-  flex: 1; text-align: center; padding: 24rpx 16rpx;
-  background: #fff; border: 2rpx solid #ddd; border-radius: 16rpx;
-  transition: all 0.2s;
+  flex: 1;
+  text-align: center;
+  padding: $spacing-lg $spacing-sm;
+  background: $color-bg-card;
+  border: 2rpx solid $color-border;
+  border-radius: $radius-xl;
+  transition: all $duration-normal $ease-default;
+
+  &.active {
+    border-color: $color-primary;
+    background: $color-primary-light;
+  }
 }
-.role-option.active { border-color: #4A90D9; background: #EBF3FB; }
-.role-icon { font-size: 48rpx; display: block; margin-bottom: 8rpx; }
-.role-label { font-size: 28rpx; font-weight: bold; color: #333; display: block; }
-.role-desc { font-size: 22rpx; color: #999; display: block; margin-top: 4rpx; }
 
-.divider { display: flex; align-items: center; margin: 50rpx 0 30rpx; }
-.line { flex: 1; height: 1rpx; background: #ddd; }
-.divider-text { padding: 0 20rpx; font-size: 24rpx; color: #999; }
+.role-icon {
+  font-size: 48rpx;
+  display: block;
+  margin-bottom: $spacing-xs;
+}
 
-.wx-login-btn { background: #07C160; color: #fff; border-radius: 48rpx; font-size: 32rpx; padding: 24rpx; }
+.role-label {
+  font-size: $font-size-base;
+  font-weight: $font-weight-bold;
+  color: $color-text-primary;
+  display: block;
+}
 
+.role-desc {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+  display: block;
+  margin-top: 4rpx;
+  font-weight: $font-weight-light;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  margin: $spacing-3xl 0 $spacing-xl;
+}
+
+.line {
+  flex: 1;
+  height: 1rpx;
+  background: $color-border;
+}
+
+.divider-text {
+  padding: 0 $spacing-md;
+  font-size: $font-size-sm;
+  color: $color-text-placeholder;
+  font-weight: $font-weight-light;
+}
 </style>

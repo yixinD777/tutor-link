@@ -1,46 +1,38 @@
 <template>
   <view class="page">
-    <view class="form-card">
+    <TlCard>
       <text class="form-title">发布家教需求</text>
-      <view class="form-group">
-        <text class="label">标题</text>
-        <input class="input" v-model="form.title" placeholder="简要描述需求" />
-      </view>
-      <view class="form-group">
-        <text class="label">科目</text>
-        <picker :range="subjectNames" @change="onSubjectChange">
-          <view class="picker-text">{{ form.subjectName || '请选择科目' }}</view>
-        </picker>
-      </view>
-      <view class="form-group">
-        <text class="label">年级</text>
-        <input class="input" v-model="form.grade" placeholder="如: 高二" />
-      </view>
-      <view class="form-group">
-        <text class="label">时薪(元)</text>
-        <input class="input" v-model="form.hourlyRate" type="digit" placeholder="如: 80" />
-      </view>
-      <view class="form-group">
-        <text class="label">总课时</text>
-        <input class="input" v-model="form.totalHours" type="number" placeholder="如: 20" />
-      </view>
-      <view class="form-group">
-        <text class="label">授课方式</text>
-        <picker :range="['线下', '线上', '均可']" @change="onModeChange">
-          <view class="picker-text">{{ modeText }}</view>
-        </picker>
-      </view>
-      <view class="form-group">
-        <text class="label">详细描述</text>
-        <textarea class="textarea" v-model="form.description" placeholder="描述具体需求" />
-      </view>
-      <button class="submit-btn" @tap="submitOrder">发布需求</button>
-    </view>
+      <TlFormInput label="标题" v-model="form.title" placeholder="简要描述需求" required />
+
+      <TlFormInput label="科目">
+        <template #default>
+          <picker :range="subjectNames" @change="onSubjectChange">
+            <view class="picker-text">{{ form.subjectName || '请选择科目' }}</view>
+          </picker>
+        </template>
+      </TlFormInput>
+
+      <TlFormInput label="年级" v-model="form.grade" placeholder="如: 高二" />
+      <TlFormInput label="时薪(元)" v-model="form.hourlyRate" type="digit" placeholder="如: 80" />
+      <TlFormInput label="总课时" v-model="form.totalHours" type="number" placeholder="如: 20" />
+
+      <TlFormInput label="授课方式">
+        <template #default>
+          <picker :range="['线下', '线上', '均可']" @change="onModeChange">
+            <view class="picker-text">{{ currentModeText }}</view>
+          </picker>
+        </template>
+      </TlFormInput>
+
+      <TlFormTextarea label="详细描述" v-model="form.description" placeholder="描述具体需求" />
+
+      <TlButton @tap="submitOrder" style="margin-top: 30rpx;">发布需求</TlButton>
+    </TlCard>
   </view>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { createOrder } from '../../api/order'
 import { sendMessage } from '../../api/chat'
@@ -55,11 +47,14 @@ const form = ref({
 })
 const subjectNames = ref([])
 const subjectIds = ref([])
-const modeText = ref('线下')
+
+const currentModeText = computed(() => {
+  return { 1: '线下', 2: '线上', 3: '均可' }[form.value.teachingMode] || '线下'
+})
 
 onLoad((options) => {
   if (options.tutorUserId) {
-    tutorUserId.value = Number(options.tutorUserId)
+    tutorUserId.value = options.tutorUserId
   }
   loadSubjects()
 })
@@ -79,7 +74,6 @@ function onSubjectChange(e) {
 
 function onModeChange(e) {
   form.value.teachingMode = e.detail.value + 1
-  modeText.value = ['线下', '线上', '均可'][e.detail.value]
 }
 
 async function submitOrder() {
@@ -98,7 +92,6 @@ async function submitOrder() {
       description: form.value.description
     })
 
-    // 如果是从聊天页面发起的，发送订单卡片消息给家教
     if (tutorUserId.value) {
       try {
         await sendMessage(tutorUserId.value, 3, JSON.stringify({
@@ -119,14 +112,23 @@ async function submitOrder() {
 }
 </script>
 
-<style scoped>
-.page { padding: 20rpx; }
-.form-card { background: #fff; border-radius: 16rpx; padding: 30rpx; }
-.form-title { font-size: 36rpx; font-weight: bold; display: block; margin-bottom: 30rpx; }
-.form-group { margin-bottom: 24rpx; }
-.label { font-size: 28rpx; color: #333; display: block; margin-bottom: 12rpx; }
-.input { background: #f5f5f5; border-radius: 12rpx; padding: 20rpx; font-size: 28rpx; }
-.picker-text { background: #f5f5f5; border-radius: 12rpx; padding: 20rpx; font-size: 28rpx; color: #333; }
-.textarea { background: #f5f5f5; border-radius: 12rpx; padding: 20rpx; font-size: 28rpx; width: 100%; height: 200rpx; }
-.submit-btn { background: #4A90D9; color: #fff; border-radius: 48rpx; font-size: 32rpx; padding: 24rpx; margin-top: 30rpx; }
+<style lang="scss" scoped>
+.page {
+  padding: $spacing-page;
+}
+
+.form-title {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-bold;
+  display: block;
+  margin-bottom: $spacing-xl;
+}
+
+.picker-text {
+  background: $color-bg-input;
+  border-radius: $radius-md;
+  padding: $spacing-lg;
+  font-size: $font-size-base;
+  color: $color-text-regular;
+}
 </style>

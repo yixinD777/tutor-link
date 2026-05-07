@@ -30,9 +30,14 @@ export function listPendingOrdersFeed(params) {
   return get('/orders/pending/feed', params)
 }
 
-// 家教接单
-export function acceptOrder(id) {
-  return put(`/orders/${id}/accept`)
+// 家教表达意向
+export function expressInterest(id) {
+  return put(`/orders/${id}/interest`)
+}
+
+// 家长确认委托
+export function confirmDelegation(id) {
+  return put(`/orders/${id}/confirm-delegation`)
 }
 
 // 取消订单

@@ -1,48 +1,44 @@
 <template>
   <view class="page">
-    <view class="form-card">
+    <TlCard>
       <text class="form-title">学生身份认证</text>
       <text class="form-desc">上传学生证照片，审核通过后即可接单</text>
 
       <!-- 当前状态 -->
       <view v-if="certification" class="status-card">
-        <text class="status-text" :class="statusClass">{{ statusText }}</text>
+        <TlStatusBadge :status="certification.status" type="cert" />
         <text v-if="certification.rejectReason" class="reject-reason">拒绝原因: {{ certification.rejectReason }}</text>
       </view>
 
       <!-- 表单 -->
       <view v-if="!certification || certification.status === 3">
-        <view class="form-group">
-          <text class="label">真实姓名</text>
-          <input class="input" v-model="form.realName" placeholder="请输入真实姓名" />
-        </view>
-        <view class="form-group">
-          <text class="label">学生证号</text>
-          <input class="input" v-model="form.studentIdNo" placeholder="请输入学生证号" />
-        </view>
-        <view class="form-group">
-          <text class="label">学生证照片(正面)</text>
+        <TlFormInput label="真实姓名" v-model="form.realName" placeholder="请输入真实姓名" required />
+        <TlFormInput label="学生证号" v-model="form.studentIdNo" placeholder="请输入学生证号" />
+
+        <view class="upload-group">
+          <text class="upload-label">学生证照片(正面)</text>
           <view class="upload-area" @tap="uploadPhoto('front')">
             <image v-if="form.photoFront" :src="form.photoFront" mode="aspectFill" class="preview" />
             <text v-else class="upload-text">+ 上传照片</text>
           </view>
         </view>
-        <view class="form-group">
-          <text class="label">学生证照片(反面)</text>
+
+        <view class="upload-group">
+          <text class="upload-label">学生证照片(反面)</text>
           <view class="upload-area" @tap="uploadPhoto('back')">
             <image v-if="form.photoBack" :src="form.photoBack" mode="aspectFill" class="preview" />
             <text v-else class="upload-text">+ 上传照片</text>
           </view>
         </view>
 
-        <button class="submit-btn" @tap="submitCertification">提交认证</button>
+        <TlButton @tap="submitCertification" style="margin-top: 40rpx;">提交认证</TlButton>
       </view>
-    </view>
+    </TlCard>
   </view>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { get, post } from '../../api/request'
 import { uploadFile } from '../../api/request'
 
@@ -52,18 +48,6 @@ const form = ref({
   studentIdNo: '',
   photoFront: '',
   photoBack: ''
-})
-
-const statusText = computed(() => {
-  if (!certification.value) return ''
-  const map = { 1: '审核中', 2: '已认证', 3: '认证未通过' }
-  return map[certification.value.status] || ''
-})
-
-const statusClass = computed(() => {
-  if (!certification.value) return ''
-  const map = { 1: 'pending', 2: 'approved', 3: 'rejected' }
-  return map[certification.value.status] || ''
 })
 
 onMounted(() => { loadCertification() })
@@ -115,22 +99,68 @@ async function submitCertification() {
 }
 </script>
 
-<style scoped>
-.page { padding: 20rpx; }
-.form-card { background: #fff; border-radius: 16rpx; padding: 30rpx; }
-.form-title { font-size: 36rpx; font-weight: bold; display: block; margin-bottom: 12rpx; }
-.form-desc { font-size: 26rpx; color: #999; display: block; margin-bottom: 30rpx; }
-.status-card { background: #f5f5f5; border-radius: 12rpx; padding: 24rpx; margin-bottom: 30rpx; }
-.status-text { font-size: 30rpx; font-weight: bold; display: block; }
-.status-text.pending { color: #FF9500; }
-.status-text.approved { color: #34C759; }
-.status-text.rejected { color: #FF3B30; }
-.reject-reason { font-size: 24rpx; color: #999; margin-top: 10rpx; display: block; }
-.form-group { margin-bottom: 24rpx; }
-.label { font-size: 28rpx; color: #333; display: block; margin-bottom: 12rpx; }
-.input { background: #f5f5f5; border-radius: 12rpx; padding: 20rpx; font-size: 28rpx; }
-.upload-area { width: 300rpx; height: 200rpx; background: #f5f5f5; border-radius: 12rpx; display: flex; justify-content: center; align-items: center; }
-.upload-text { color: #999; font-size: 28rpx; }
-.preview { width: 300rpx; height: 200rpx; border-radius: 12rpx; }
-.submit-btn { background: #4A90D9; color: #fff; border-radius: 48rpx; font-size: 32rpx; padding: 24rpx; margin-top: 40rpx; }
+<style lang="scss" scoped>
+.page {
+  padding: $spacing-page;
+}
+
+.form-title {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-bold;
+  display: block;
+  margin-bottom: $spacing-sm;
+}
+
+.form-desc {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  display: block;
+  margin-bottom: $spacing-xl;
+}
+
+.status-card {
+  background: $color-bg-input;
+  border-radius: $radius-md;
+  padding: $spacing-lg;
+  margin-bottom: $spacing-xl;
+}
+
+.reject-reason {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  margin-top: $spacing-sm;
+  display: block;
+}
+
+.upload-group {
+  margin-bottom: $spacing-lg;
+}
+
+.upload-label {
+  font-size: $font-size-base;
+  color: $color-text-regular;
+  display: block;
+  margin-bottom: $spacing-sm;
+}
+
+.upload-area {
+  width: 300rpx;
+  height: 200rpx;
+  background: $color-bg-input;
+  border-radius: $radius-md;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.upload-text {
+  color: $color-text-secondary;
+  font-size: $font-size-base;
+}
+
+.preview {
+  width: 300rpx;
+  height: 200rpx;
+  border-radius: $radius-md;
+}
 </style>

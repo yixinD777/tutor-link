@@ -229,6 +229,14 @@ public class UserServiceImpl implements UserService {
         userMapper.updateById(update);
     }
 
+    @Override
+    public void updateAvatar(Long userId, String avatarUrl) {
+        User update = new User();
+        update.setId(userId);
+        update.setAvatarUrl(avatarUrl);
+        userMapper.updateById(update);
+    }
+
     // ==================== 私有方法 ====================
 
     private User createPhoneUser(String phone, String phoneHash) {

@@ -39,12 +39,18 @@ public class TutorProfileService {
             return existing;
         }
 
-        // 更新用户角色: 增加 TUTOR 角色
+        // 更新用户角色: 替换为 TUTOR 角色（角色互斥，不能同时是家长和家教）
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
-        user.setRole(user.getRole() | UserRole.TUTOR.getCode());
+        if (UserRole.hasRole(user.getRole(), UserRole.TUTOR)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "您已经是家教角色");
+        }
+        if (!UserRole.hasRole(user.getRole(), UserRole.PARENT)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "仅家长角色可切换为家教");
+        }
+        user.setRole(UserRole.TUTOR.getCode());
         userMapper.updateById(user);
 
         // 创建家教档案

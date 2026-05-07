@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @Tag(name = "用户管理")
 @RestController
 @RequestMapping("/api/v1/users")
@@ -21,5 +23,24 @@ public class UserController {
     @GetMapping("/me")
     public ApiResult<User> getCurrentUser(@AuthenticationPrincipal Long userId) {
         return ApiResult.success(userService.getUserById(userId));
+    }
+
+    @Operation(summary = "更新头像")
+    @PutMapping("/me/avatar")
+    public ApiResult<Void> updateAvatar(@AuthenticationPrincipal Long userId,
+                                        @RequestParam String avatarUrl) {
+        userService.updateAvatar(userId, avatarUrl);
+        return ApiResult.success();
+    }
+
+    @Operation(summary = "获取用户基本信息（昵称、头像）")
+    @GetMapping("/{id}/basic")
+    public ApiResult<Map<String, Object>> getUserBasic(@PathVariable Long id) {
+        User user = userService.getUserById(id);
+        return ApiResult.success(Map.of(
+                "userId", user.getId(),
+                "nickname", user.getNickname() != null ? user.getNickname() : "",
+                "avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : ""
+        ));
     }
 }
